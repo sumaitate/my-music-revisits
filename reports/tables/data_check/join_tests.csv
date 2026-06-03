@@ -1,0 +1,11 @@
+left_table,right_table,left_column,right_column,left_unique_values,right_unique_values,overlap_unique_values,left_overlap_rate,right_overlap_rate,status
+raw__csv__music_play_activity,processed__parquet__library_tracks,,Title,,,,,,Skipped Missing Column
+raw__csv__container_details,raw__csv__container_origin,Container Description,,,,,,,Skipped Missing Column
+raw__csv__play_history_daily_tracks,processed__parquet__library_tracks,Track Reference,Apple Music Track Identifier,2643.0,10633.0,2079.0,0.7866,0.1955,Tested
+raw__csv__music_play_activity,processed__parquet__library_tracks,Song Name,Title,3104.0,9775.0,2238.0,0.721,0.229,Tested
+raw__csv__play_history_daily_tracks,processed__parquet__library_tracks,Track Description,Title,2805.0,9775.0,8.0,0.0029,0.0008,Tested
+raw__csv__track_play_history,processed__parquet__library_tracks,Track Name,Title,3012.0,9775.0,8.0,0.0027,0.0008,Tested
+raw__csv__play_history_daily_tracks,processed__parquet__library_tracks,Track Identifier,Track Identifier,2907.0,10738.0,0.0,0.0,0.0,Tested
+processed__parquet__favorites_clean,processed__parquet__library_tracks,item_reference,Apple Music Track Identifier,156.0,10633.0,0.0,0.0,0.0,Tested
+processed__parquet__favorites_clean,processed__parquet__library_tracks,item_description,Title,155.0,9775.0,0.0,0.0,0.0,Tested
+processed__parquet__identifier_information,processed__parquet__library_tracks,Identifier,Track Identifier,15260.0,10738.0,0.0,0.0,0.0,Tested

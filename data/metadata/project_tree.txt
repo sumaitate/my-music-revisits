@@ -1,0 +1,64 @@
+.
+├── .gitignore
+├── .streamlit
+│   └── config.toml
+├── app
+│   └── main.py
+├── data
+│   ├── interim
+│   │   ├── csv
+│   │   └── json
+│   ├── metadata
+│   │   ├── project_tree.txt
+│   │   └── raw_data_inventory.csv
+│   ├── processed
+│   │   ├── parquet
+│   │   └── reports
+│   └── raw
+│       ├── csv
+│       │   ├── container_details.csv
+│       │   ├── container_origin.csv
+│       │   ├── favorites.csv
+│       │   ├── feature_statistics.csv
+│       │   ├── music_play_activity.csv
+│       │   ├── play_history_daily_tracks.csv
+│       │   ├── play_statistics.csv
+│       │   ├── recent_impressions.csv
+│       │   ├── recently_played_containers.csv
+│       │   ├── recently_played_tracks.csv
+│       │   ├── top_content.csv
+│       │   └── track_play_history.csv
+│       └── json_zips
+│           ├── identifier_information.json.zip
+│           ├── library_activity.json.zip
+│           ├── library_albums.json.zip
+│           ├── library_artists.json.zip
+│           ├── library_import_playlists.json.zip
+│           ├── library_import_sessions.json.zip
+│           ├── library_import_tracks.json.zip
+│           ├── library_playlists.json.zip
+│           └── library_tracks.json.zip
+├── notebooks
+│   └── eda
+├── README.md
+├── reports
+│   ├── figures
+│   └── tables
+├── requirements.txt
+├── scripts
+│   └── inspect_raw_data.py
+├── src
+│   ├── __init__.py
+│   ├── data
+│   │   └── __init__.py
+│   ├── features
+│   │   └── __init__.py
+│   ├── recommender
+│   │   └── __init__.py
+│   ├── utils
+│   │   └── __init__.py
+│   └── visualization
+│       └── __init__.py
+└── tests
+
+27 directories, 35 files

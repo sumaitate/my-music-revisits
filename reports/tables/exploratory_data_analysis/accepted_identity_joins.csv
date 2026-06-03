@@ -1,0 +1,5 @@
+join_name,left_table,right_table,left_columns,right_columns,status,left_row_count,right_row_count,matched_rows,unmatched_rows,match_rate,duplicate_expansion_ratio,unique_matched_keys
+preferences_to_tracks_by_catalog_id,favorites_clean,library_tracks_clean,item_reference,apple_music_track_identifier,Tested,156,10738,155.0,1.0,0.9936,1.0258,155.0
+imports_to_tracks_by_imported_id,library_import_tracks,library_tracks_clean,imported_library_track_id,track_identifier,Tested,9547,10738,9356.0,191.0,0.98,1.0,9189.0
+listening_to_tracks_by_catalog_id,listening_events,library_tracks_clean,track_reference,apple_music_track_identifier,Tested,5042,10738,4058.0,984.0,0.8048,1.0271,2079.0
+imports_to_tracks_by_title_artist,library_import_tracks,library_tracks_clean,track_name | track_artist_name,title | artist,Tested,9547,10738,6808.0,2739.0,0.7131,1.0939,6510.0

@@ -1,0 +1,21 @@
+table_name,candidate_columns,resolved_columns,status,row_count,unique_keys,duplicate_rows,unique_rate
+play_activity_events,event_identifier,,Missing Column,22872,,,
+play_activity_events,event_id,event_id,Tested,22872,22869.0,6.0,0.9999
+play_activity_events,transaction_identifier,,Missing Column,22872,,,
+play_activity_events,event_start_timestamp | event_end_timestamp | song_name | media_duration_in_milliseconds,event_start_timestamp | event_end_timestamp | song_name | media_duration_in_milliseconds,Tested,22872,22871.0,2.0,1.0
+play_activity_events,event_start_timestamp | song_name | source_type | media_duration_in_milliseconds,event_start_timestamp | song_name | media_duration_in_milliseconds,Missing Column,22872,,,
+play_activity_events,event_start_timestamp | song_name | play_duration_milliseconds,event_start_timestamp | song_name | play_duration_milliseconds,Tested,22872,22871.0,2.0,1.0
+listening_events,date_played | track_reference,date_played | track_reference,Tested,5042,4695.0,379.0,0.9312
+listening_events,date_played | track_identifier,date_played | track_identifier,Tested,5042,5036.0,12.0,0.9988
+listening_events,date_played | title_from_description | artist_from_description,date_played | title_from_description | artist_from_description,Tested,5042,5020.0,43.0,0.9956
+listening_events,track_reference,track_reference,Tested,5042,2643.0,3107.0,0.5242
+listening_events,track_identifier,track_identifier,Tested,5042,2907.0,2893.0,0.5766
+listening_events,title_from_description | artist_from_description,title_from_description | artist_from_description,Tested,5042,2802.0,3048.0,0.5557
+library_tracks_clean,track_identifier,track_identifier,Tested,10738,10738.0,0.0,1.0
+library_tracks_clean,apple_music_track_identifier,apple_music_track_identifier,Tested,10738,10633.0,208.0,0.9902
+library_tracks_clean,title | artist,title | artist,Tested,10738,10228.0,1000.0,0.9525
+library_tracks_clean,title | artist | album,title | artist | album,Tested,10738,10629.0,218.0,0.9898
+library_tracks_clean,isrc,,Missing Column,10738,,,
+favorites_clean,item_reference,item_reference,Tested,156,156.0,0.0,1.0
+favorites_clean,favorite_type | item_reference,favorite_type | item_reference,Tested,156,156.0,0.0,1.0
+favorites_clean,item_description,item_description,Tested,156,155.0,0.0,0.9936

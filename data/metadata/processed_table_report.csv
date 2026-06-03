@@ -1,0 +1,5 @@
+table_name,path,row_count,column_count
+listening_events,data/processed/parquet/listening_events.parquet,5042,21
+library_tracks_clean,data/processed/parquet/library_tracks_clean.parquet,10738,52
+favorites_clean,data/processed/parquet/favorites_clean.parquet,156,6
+play_activity_events,data/processed/parquet/play_activity_events.parquet,22872,32

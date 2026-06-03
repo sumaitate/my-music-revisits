@@ -1,0 +1,9 @@
+join_name,left_table,right_table,left_columns,right_columns,status,left_row_count,right_row_count,matched_rows,unmatched_rows,match_rate,duplicate_expansion_ratio,unique_matched_keys
+activity_to_tracks_by_catalog_id,play_activity_events,library_tracks_clean,catalog_track_id,apple_music_track_identifier,Skipped Missing Column,22872,10738,,,,,
+activity_to_tracks_by_song_artist,play_activity_events,library_tracks_clean,song_name | artist_name,title | artist,Skipped Missing Column,22872,10738,,,,,
+activity_to_tracks_by_song_title,play_activity_events,library_tracks_clean,song_name,title,Tested,22872,10738,19808.0,3064.0,0.866,1.4149,2245.0
+listening_to_tracks_by_title_artist,listening_events,library_tracks_clean,title_from_description | artist_from_description,title | artist,Tested,5042,10738,4104.0,938.0,0.814,1.1106,1977.0
+identifier_lookup_to_tracks_by_catalog_id,identifier_information,library_tracks_clean,identifier,apple_music_track_identifier,Tested,15260,10738,10633.0,4627.0,0.6968,1.0098,10633.0
+listening_to_tracks_by_track_id,listening_events,library_tracks_clean,track_identifier,track_identifier,Tested,5042,10738,0.0,5042.0,0.0,,0.0
+preferences_to_tracks_by_track_id,favorites_clean,library_tracks_clean,item_reference,track_identifier,Tested,156,10738,0.0,156.0,0.0,,0.0
+identifier_lookup_to_tracks_by_track_id,identifier_information,library_tracks_clean,identifier,track_identifier,Tested,15260,10738,0.0,15260.0,0.0,,0.0

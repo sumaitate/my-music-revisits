@@ -1,0 +1,6 @@
+analysis_layer,primary_table,supporting_tables,analysis_use
+Listening Behavior,raw__csv__music_play_activity,"play_history_daily_tracks, recently_played_tracks, play_statistics, feature_statistics, top_content","Listening volume, playback behavior, source context, device context, time patterns, and repeated listening."
+Library Catalog,processed__parquet__library_tracks,"library_import_tracks, library_albums, library_artists, identifier_information","Track metadata, artists, albums, genres, release years, catalog coverage, and metadata quality."
+Engagement and Friction,raw__csv__music_play_activity,"play_history_daily_tracks, recently_played_tracks, library_tracks, favorites","Skips, end reasons, short plays, completion proxies, manual switching, and preference-adjusted engagement."
+Playlist and Container Context,processed__parquet__library_playlists,"container_details, container_origin, recently_played_containers, library_activity","Playlist structure, container origins, curation activity, and playlist-driven listening patterns."
+Recommendation Readiness,processed__parquet__library_tracks,"favorites, recent_impressions, play_history_daily_tracks, music_play_activity","Seed-track recommendations, prompt-filtered recommendations, preference signals, and candidate feature construction."

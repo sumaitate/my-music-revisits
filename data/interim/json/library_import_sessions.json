@@ -1,0 +1,22 @@
+[
+  {
+    "Import Source": "Spotify",
+    "Received State": "RECEIVED",
+    "Import Summary": {
+      "expectedTotalCounts": {
+        "albums": 0,
+        "playlists": 88,
+        "tracks": 11075
+      },
+      "source": ""
+    },
+    "External Rating": "EXPLICIT",
+    "Matching State": "UNDER_REVIEW",
+    "Library Import State": "ADDING",
+    "Last Session": "2025-10-18T00:20:34.860Z[UTC]",
+    "Import Session Timestamp": "2025-10-18T00:15:13.747Z[UTC]",
+    "Status": "TIMED_OUT",
+    "Store Front Name": "United States",
+    "Session ID": "7f5026d7-770f-43ea-b6ba-3df72d5c5e4a@1"
+  }
+]

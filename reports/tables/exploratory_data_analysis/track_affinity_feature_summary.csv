@@ -1,0 +1,33 @@
+feature_name,non_null_count,missing_rate,dtype
+track_key,3047,0.0,str
+total_plays,3047,0.0,int64
+total_listening_minutes,3047,0.0,float64
+unique_listening_days,3047,0.0,int64
+completion_mean,3015,0.0105,float64
+completion_median,3015,0.0105,float64
+short_play_rate,3047,0.0,float64
+skip_like_rate,3047,0.0,float64
+last_observed,3046,0.0003,"datetime64[us, UTC]"
+library_flag,3047,0.0,object
+preference_state,0,1.0,str
+preference_records,0,1.0,float64
+preference_type,0,1.0,str
+favorite_flag,3047,0.0,object
+title,0,1.0,str
+artist,0,1.0,str
+album,0,1.0,str
+genre,0,1.0,str
+release_date,0,1.0,"datetime64[us, UTC]"
+track_duration_minutes,0,1.0,float64
+track_duration,0,1.0,float64
+source_diversity_count,3047,0.0,int64
+artist_name,0,1.0,str
+artist_total_minutes,3047,0.0,float64
+genre_total_minutes,3047,0.0,float64
+recency_days,3046,0.0003,float64
+explicit_preference_score,3047,0.0,float64
+plays_score,3047,0.0,float64
+minutes_score,3047,0.0,float64
+completion_score,3047,0.0,float64
+recency_score,3047,0.0,float64
+preliminary_affinity_score,3047,0.0,float64

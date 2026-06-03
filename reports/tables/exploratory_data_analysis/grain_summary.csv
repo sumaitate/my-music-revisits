@@ -1,0 +1,17 @@
+table_name,row_count,column_count,recommended_use,merge_warning,observed_grain
+play_activity_events,22872,32,EDA Core,Aggregate before merging,Playback event level
+library_tracks_clean,10738,52,EDA Core,Dimension or support table,Track metadata dimension
+listening_events,5042,21,EDA Core,Aggregate before merging,Daily-track or track-date summary
+favorites_clean,156,6,EDA Core,Dimension or support table,Explicit preference record
+identifier_information,15260,2,EDA Support,Dimension or support table,Support or validation table
+library_import_tracks,9547,22,EDA Support,Dimension or support table,Support or validation table
+library_activity,3842,35,EDA Support,Aggregate before merging,Library or playlist activity transaction
+recent_impressions,359,5,EDA Support,Dimension or support table,Support or validation table
+recently_played_tracks,200,22,EDA Support,Dimension or support table,Support or validation table
+container_details,162,10,EDA Support,Dimension or support table,Support or validation table
+library_playlists,144,15,EDA Support,Dimension or support table,Support or validation table
+container_origin,69,8,EDA Support,Dimension or support table,Support or validation table
+recently_played_containers,50,11,EDA Support,Dimension or support table,Support or validation table
+top_content,196,8,Validation Only,Dimension or support table,Support or validation table
+feature_statistics,126,6,Validation Only,Dimension or support table,Support or validation table
+play_statistics,36,5,Validation Only,Dimension or support table,Support or validation table

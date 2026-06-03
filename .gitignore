@@ -10,16 +10,3 @@ __pycache__/
 # Environment files
 .env
 .env.*
-
-# Personal data and generated analytics
-data/raw/
-data/interim/
-data/processed/
-data/metadata/
-reports/tables/
-reports/figures/
-
-# Large data artifacts
-*.parquet
-*.zip
-*.json.zip

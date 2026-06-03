@@ -1,0 +1,10 @@
+source_file,json_member_name,extracted_json_path,readable_csv_path,parquet_path,row_count,column_count
+identifier_information.json.zip,Identifier Information.json,data/interim/json/identifier_information.json,data/interim/csv/identifier_information.csv,data/processed/parquet/identifier_information.parquet,15260,2
+library_activity.json.zip,Apple Music Library Activity.json,data/interim/json/library_activity.json,data/interim/csv/library_activity.csv,data/processed/parquet/library_activity.parquet,3842,35
+library_albums.json.zip,Apple Music Library Albums.json,data/interim/json/library_albums.json,data/interim/csv/library_albums.csv,data/processed/parquet/library_albums.parquet,5255,6
+library_artists.json.zip,Apple Music Library Artists.json,data/interim/json/library_artists.json,data/interim/csv/library_artists.csv,data/processed/parquet/library_artists.parquet,3109,6
+library_import_playlists.json.zip,Apple Music Library Import Playlists.json,data/interim/json/library_import_playlists.json,data/interim/csv/library_import_playlists.csv,data/processed/parquet/library_import_playlists.parquet,88,11
+library_import_sessions.json.zip,Apple Music Library Import Sessions.json,data/interim/json/library_import_sessions.json,data/interim/csv/library_import_sessions.csv,data/processed/parquet/library_import_sessions.parquet,1,14
+library_import_tracks.json.zip,Apple Music Library Import Tracks.json,data/interim/json/library_import_tracks.json,data/interim/csv/library_import_tracks.csv,data/processed/parquet/library_import_tracks.parquet,9547,22
+library_playlists.json.zip,Apple Music Library Playlists.json,data/interim/json/library_playlists.json,data/interim/csv/library_playlists.csv,data/processed/parquet/library_playlists.parquet,144,15
+library_tracks.json.zip,Apple Music Library Tracks.json,data/interim/json/library_tracks.json,data/interim/csv/library_tracks.csv,data/processed/parquet/library_tracks.parquet,10738,50
