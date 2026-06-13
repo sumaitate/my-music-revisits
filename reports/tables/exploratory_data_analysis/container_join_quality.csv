@@ -1,4 +1,0 @@
-join_name,left_table,right_table,left_column,right_column,status,left_row_count,right_row_count,matched_rows,match_rate,left_unique_values,right_unique_values
-container_details_to_origin,container_details,container_origin,container_description,artist_name,Tested,162,69,0,0.0,74,0
-container_details_to_playlists,container_details,library_playlists,container_description,title,Tested,162,144,32,0.1975,74,132
-container_origin_to_playlists,container_origin,library_playlists,artist_name,title,Tested,69,144,0,0.0,0,132

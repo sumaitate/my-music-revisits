@@ -1,8 +1,0 @@
-dataset,path,row_count,column_count
-dashboard_play_activity_events,data/processed/analytics/dashboard_play_activity_events.parquet,22872,82
-dashboard_listening_events,data/processed/analytics/dashboard_listening_events.parquet,5042,35
-dim_tracks,data/processed/analytics/dim_tracks.parquet,10738,75
-fact_preferences,data/processed/analytics/fact_preferences.parquet,156,20
-dim_source_context,data/processed/analytics/dim_source_context.parquet,96,3
-listening_sessions,data/processed/analytics/listening_sessions.parquet,491,15
-track_affinity_features,data/processed/analytics/track_affinity_features.parquet,3047,32

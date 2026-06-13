@@ -1,9 +1,0 @@
-track_match_status,row_count,table_name,row_share
-fallback_unmatched,22872,play_activity_events,1.0
-identifier_matched,4058,listening_events,0.8048393494644982
-fallback_unmatched,771,listening_events,0.15291550971836573
-fallback_matched,213,listening_events,0.042245140817136054
-identifier_matched,155,favorites_clean,0.9935897435897436
-unresolved,1,favorites_clean,0.00641025641025641
-identifier_available,10737,library_tracks_clean,0.9999068727882288
-fallback_available,1,library_tracks_clean,9.312721177127957e-05

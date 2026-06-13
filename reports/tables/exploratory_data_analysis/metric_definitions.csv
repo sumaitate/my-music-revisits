@@ -1,9 +1,0 @@
-metric_name,definition,threshold
-completion_rate,Valid play duration divided by valid media duration.,No threshold
-very_short_play,Play duration is below the very-short threshold.,10 seconds
-short_play,Play duration is below the short-play threshold.,30 seconds
-meaningful_play,Play duration reaches the meaningful-play threshold or completion is near complete.,30 seconds or 80% completion
-near_complete_play,Completion rate reaches the near-complete threshold.,80% completion
-started_midtrack,Start position is greater than the mid-track threshold.,30 seconds
-possible_seek,Start or end position suggests a non-linear playback path.,5 second tolerance
-skip_like_end,The play is short and not near complete.,Below 30 seconds and below 80% completion
