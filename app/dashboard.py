@@ -571,6 +571,9 @@ def load_data() -> dict[str, pd.DataFrame]:
         "features": load_table("features"),
         "life": load_table("life"),
         "profile": load_table("profile"),
+        "recommend_candidates": load_table("recommend_candidates"),
+        "recommendations": load_table("recommendations"),
+        "recommend_profile": load_table("recommend_profile"),
     }
 
 
@@ -620,7 +623,6 @@ def base_chart(chart: go.Figure, height: int = 420) -> go.Figure:
 
 
 chart_count = 0
-
 
 def show_chart(chart: go.Figure, key: str | None = None):
     global chart_count
@@ -1484,7 +1486,181 @@ def terrain_chart(data: pd.DataFrame) -> go.Figure:
     chart.update_yaxes(title_text="Count")
 
     return base_chart(chart, 385)
+def recommendation_color(value: str) -> str:
+    mapping = {
+        "Bring Back": color["mint"],
+        "Keep Close": color["cyan"],
+        "Rediscover": color["purple"],
+        "Risky": color["coral"],
+        "Leave Alone": color["gray"],
+        "Faded": color["pink"],
+    }
 
+    return mapping.get(str(value), color["gray"])
+
+
+def clean_role(data: pd.DataFrame) -> pd.DataFrame:
+    table = data.copy()
+
+    if "recommend_role" not in table.columns and "candidate_class" in table.columns:
+        table["recommend_role"] = table["candidate_class"].map(role_name)
+
+    if "recommend_role" in table.columns:
+        table["recommend_role"] = table["recommend_role"].fillna("Bring Back").astype(str)
+
+    return table
+
+
+def recommendation_map(candidates: pd.DataFrame, seed_key: str | None = None) -> go.Figure:
+    data = clean_role(candidates).copy()
+
+    if data.empty:
+        return base_chart(go.Figure(), 500)
+
+    data["size"] = 12 + 56 * data["recommend_score"].fillna(0).clip(0, 1)
+    data["line_width"] = np.where(data["track_key"].astype(str).eq(str(seed_key)), 4, 1)
+
+    chart = go.Figure()
+
+    for role, group in data.groupby("recommend_role"):
+        chart.add_trace(
+            go.Scatter(
+                x=group["plays"],
+                y=group["affinity_score"],
+                mode="markers",
+                marker={
+                    "size": group["size"],
+                    "color": recommendation_color(role),
+                    "opacity": 0.66,
+                    "line": {
+                        "color": "rgba(16,16,16,0.46)",
+                        "width": group["line_width"],
+                    },
+                },
+                name=str(role),
+                customdata=group[
+                    [
+                        "display",
+                        "artist",
+                        "album",
+                        "genre",
+                        "recommend_score",
+                        "friction_rate",
+                        "recommend_reason",
+                    ]
+                ],
+                hovertemplate="<b>%{customdata[0]}</b><br>Artist: %{customdata[1]}<br>Album: %{customdata[2]}<br>Genre: %{customdata[3]}<br>Plays: %{x:,}<br>Affinity: %{y:.3f}<br>Recommendation Score: %{customdata[4]:.3f}<br>Skip Rate: %{customdata[5]:.1%}<br>%{customdata[6]}<extra></extra>",
+            )
+        )
+
+    xcut = data["plays"].quantile(0.75)
+    ycut = data["affinity_score"].quantile(0.75)
+
+    chart.add_vline(x=xcut, line_dash="dash", line_color="rgba(16,16,16,0.32)")
+    chart.add_hline(y=ycut, line_dash="dash", line_color="rgba(16,16,16,0.32)")
+
+    chart.add_annotation(x=xcut * 1.06, y=min(1, ycut * 1.08), text="Keep Close", showarrow=False)
+    chart.add_annotation(x=max(1, xcut * 0.35), y=min(1, ycut * 1.08), text="Rediscover", showarrow=False)
+    chart.add_annotation(x=xcut * 1.06, y=max(0, ycut * 0.55), text="Risky", showarrow=False)
+    chart.add_annotation(x=max(1, xcut * 0.35), y=max(0, ycut * 0.55), text="Leave Alone", showarrow=False)
+
+    chart.update_layout(title="Recommendation Map")
+    chart.update_xaxes(title_text="Exposure")
+    chart.update_yaxes(title_text="Affinity")
+
+    return base_chart(chart, 520)
+
+
+def recommendation_routes(results: pd.DataFrame) -> go.Figure:
+    data = clean_role(results).copy()
+
+    if data.empty:
+        return base_chart(go.Figure(), 420)
+
+    data = data.sort_values(["similarity", "recommend_score"], ascending=True).tail(12).reset_index(drop=True)
+
+    chart = go.Figure()
+
+    for place, row in data.iterrows():
+        shade = recommendation_color(row["recommend_role"])
+        width = 5 + 18 * float(row["similarity"])
+
+        chart.add_trace(
+            go.Scatter(
+                x=[0, row["similarity"]],
+                y=[place, place],
+                mode="lines+markers",
+                line={"color": shade, "width": width},
+                marker={
+                    "size": [6, 15],
+                    "color": shade,
+                    "line": {"color": color["line"], "width": 1},
+                },
+                text=[row["candidate_display"], row["candidate_display"]],
+                customdata=[
+                    [
+                        row["candidate_artist"],
+                        row["candidate_genre"],
+                        row["recommend_role"],
+                        row["recommend_score"],
+                        row["friction_rate"],
+                        row["recommend_reason"],
+                    ]
+                ]
+                * 2,
+                hovertemplate="<b>%{text}</b><br>Artist: %{customdata[0]}<br>Genre: %{customdata[1]}<br>Role: %{customdata[2]}<br>Similarity: %{x:.3f}<br>Recommendation Score: %{customdata[3]:.3f}<br>Skip Rate: %{customdata[4]:.1%}<br>%{customdata[5]}<extra></extra>",
+                showlegend=False,
+            )
+        )
+
+    chart.update_layout(title="Similar Tracks")
+    chart.update_xaxes(title_text="Similarity", range=[0, max(1.0, data["similarity"].max() + 0.04)])
+    chart.update_yaxes(
+        title_text="Track",
+        tickmode="array",
+        tickvals=list(range(len(data))),
+        ticktext=data["candidate_display"].map(lambda value: short_text(value, 34)),
+        showgrid=False,
+    )
+
+    return base_chart(chart, 470)
+
+
+def recommendation_summary(profile: pd.DataFrame) -> str:
+    values = profile.set_index("metric")["value"].to_dict()
+
+    ready = int(values.get("ready_tracks", 0))
+    pairs = int(values.get("recommendation_pairs", 0))
+    keep = int(values.get("keep_close", 0))
+    rediscover = int(values.get("rediscover", 0))
+    risky = int(values.get("risky", 0))
+
+    return (
+        f"The recommendation layer has {ready:,} tracks with enough signal to recommend again and "
+        f"{pairs:,} saved similar-track pairs. The strongest groups are {keep:,} tracks to keep close, "
+        f"{rediscover:,} tracks to rediscover, and {risky:,} tracks that need caution because their skip signal is high."
+    )
+
+
+def match_candidates(candidates: pd.DataFrame, query: str) -> pd.DataFrame:
+    data = clean_role(candidates).copy()
+    text = str(query).strip().lower()
+
+    if not text:
+        return data.sort_values(["recommend_score", "affinity_score"], ascending=False).head(80)
+
+    mask = (
+        data["display"].str.lower().str.contains(text, regex=False, na=False)
+        | data["artist"].str.lower().str.contains(text, regex=False, na=False)
+        | data["album"].str.lower().str.contains(text, regex=False, na=False)
+        | data["genre"].str.lower().str.contains(text, regex=False, na=False)
+    )
+
+    return data[mask].sort_values(["recommend_score", "affinity_score"], ascending=False).head(80)
+
+
+def candidate_label(row: pd.Series) -> str:
+    return f"{row['display']} — {row['artist']} · {row['recommend_role']} · {row['recommend_score']:.3f}"
 
 def arena_chart(features: pd.DataFrame) -> go.Figure:
     data = features.copy()
@@ -2049,21 +2225,100 @@ def show_recommendations(tables: dict[str, pd.DataFrame]) -> None:
         "This page looks at which tracks should come back, which ones are strong favorites, and which ones may be too risky to recommend again.",
     )
 
-    features = tables["features"].copy()
-    summary(
-        "The recommendation map compares exposure and affinity. Tracks with higher affinity and enough exposure are stronger candidates to bring back, while tracks with high skip behavior should be treated carefully."
+    candidates = clean_role(tables["recommend_candidates"]).copy()
+    pairs = clean_role(tables["recommendations"]).copy()
+    profile = tables["recommend_profile"].copy()
+
+    summary(recommendation_summary(profile))
+
+    role_options = [
+        "All roles",
+        "Bring Back",
+        "Keep Close",
+        "Rediscover",
+        "Risky",
+        "Leave Alone",
+        "Faded",
+    ]
+
+    left, right = st.columns([1, 1])
+
+    with left:
+        query = st.text_input("Search track, artist, album, or genre", value="")
+
+    with right:
+        role_filter = st.selectbox("Recommendation role", role_options)
+
+    shown = match_candidates(candidates, query)
+
+    if role_filter != "All roles":
+        shown = shown[shown["recommend_role"].eq(role_filter)]
+
+    if shown.empty:
+        st.warning("No recommendation candidates match the current search.")
+        return
+
+    choices = shown.index.tolist()
+
+    seed_index = st.selectbox(
+        "Choose a seed track",
+        choices,
+        format_func=lambda value: candidate_label(shown.loc[value]),
     )
 
-    chosen = st.multiselect(
-        "Recommendation role",
-        sorted(features["candidate_class"].dropna().unique().tolist()),
+    seed = shown.loc[seed_index]
+    seed_key = str(seed["track_key"])
+
+    st.markdown(
+        f"""
+        <div class="identity-card">
+            <div class="identity-title">{html.escape(str(seed['display']))}</div>
+            <p class="identity-text">
+                {html.escape(str(seed['artist']))} · {html.escape(str(seed['genre']))}.
+                Role: {html.escape(str(seed['recommend_role']))}.
+                Recommendation score: {float(seed['recommend_score']):.3f}.
+                Skip rate: {float(seed['friction_rate']):.1%}.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    if chosen:
-        features = features[features["candidate_class"].isin(chosen)]
+    results = pairs[pairs["seed_track_key"].astype(str).eq(seed_key)].copy()
+    results = results.sort_values(["similarity", "recommend_score"], ascending=[False, False]).head(15)
 
-    show_chart(arena_chart(features))
+    show_chart(recommendation_map(candidates, seed_key=seed_key))
     caption("This chart compares exposure and affinity. Tracks with higher affinity and enough exposure are stronger candidates to bring back. Tracks with high skip behavior should be treated carefully.")
+
+    show_chart(recommendation_routes(results))
+    caption("This chart shows the closest recommendation routes for the selected seed track. Longer routes mean stronger similarity.")
+
+    with st.expander("Open Similar Track Results", expanded=False):
+        columns = [
+            "candidate_display",
+            "candidate_artist",
+            "candidate_album",
+            "candidate_genre",
+            "similarity",
+            "recommend_role",
+            "recommend_score",
+            "friction_rate",
+            "recommend_reason",
+        ]
+
+        table = results[columns].rename(
+            columns={
+                "candidate_display": "display",
+                "candidate_artist": "artist",
+                "candidate_album": "album",
+                "candidate_genre": "genre",
+                "similarity": "affinity_score",
+                "recommend_score": "average_share",
+                "recommend_reason": "ready_reason",
+            }
+        )
+
+        st.markdown(display_table(table, rows=50, pill="Role"), unsafe_allow_html=True)
 
     with st.expander("Open Track Inventory", expanded=False):
         columns = [
@@ -2076,12 +2331,21 @@ def show_recommendations(tables: dict[str, pd.DataFrame]) -> None:
             "active_days",
             "friction_rate",
             "affinity_score",
-            "candidate_class",
-            "ready_reason",
+            "recommend_score",
+            "recommend_role",
+            "recommend_reason",
             "recommender_ready",
         ]
-        st.markdown(display_table(features[columns], rows=100, pill="Role"), unsafe_allow_html=True)
 
+        table = candidates[columns].rename(
+            columns={
+                "recommend_score": "average_share",
+                "recommend_role": "candidate_class",
+                "recommend_reason": "ready_reason",
+            }
+        )
+
+        st.markdown(display_table(table, rows=100, pill="Role"), unsafe_allow_html=True)
 
 def show_scanner(data: pd.DataFrame) -> None:
     page_head(
