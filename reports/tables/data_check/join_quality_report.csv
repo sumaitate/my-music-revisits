@@ -1,0 +1,2 @@
+join_name,left_table,right_table,left_columns,right_columns,left_unique_values,right_unique_values,overlap_unique_values,left_overlap_rate,right_overlap_rate,status
+container_to_origin_by_description,raw__csv__container_details,raw__csv__container_origin,container_description,container_description,,,,,,Skipped Missing Column

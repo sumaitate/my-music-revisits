@@ -1,0 +1,233 @@
+table_key,table_name,data_layer,column_name,column_family,dtype,row_count,non_null_count,missing_count,missing_rate,unique_count
+raw__csv__container_details,container_details,raw,Container Description,context,object,162,103,59,0.3642,74
+raw__csv__container_details,container_details,raw,Container Type,context,object,162,162,0,0.0,5
+raw__csv__container_details,container_details,raw,Play Count,count,int64,162,162,0,0.0,21
+raw__csv__container_details,container_details,raw,Date Created,date_time,int64,162,162,0,0.0,35
+raw__csv__container_details,container_details,raw,Last Played,date_time,int64,162,162,0,0.0,162
+raw__csv__container_details,container_details,raw,Play Duration Milliseconds,duration,int64,162,162,0,0.0,162
+raw__csv__container_details,container_details,raw,Artist Name,music_metadata,float64,162,0,162,1.0,0
+raw__csv__container_details,container_details,raw,Artists,music_metadata,object,162,161,1,0.0062,125
+raw__csv__container_details,container_details,raw,Genres,music_metadata,object,162,161,1,0.0062,64
+raw__csv__container_details,container_details,raw,Origin,other,object,162,162,0,0.0,10
+raw__csv__container_origin,container_origin,raw,Play Count,count,int64,69,69,0,0.0,26
+raw__csv__container_origin,container_origin,raw,Date Created,date_time,int64,69,69,0,0.0,35
+raw__csv__container_origin,container_origin,raw,Last Played,date_time,int64,69,69,0,0.0,69
+raw__csv__container_origin,container_origin,raw,Play Duration Milliseconds,duration,int64,69,69,0,0.0,69
+raw__csv__container_origin,container_origin,raw,Artist Name,music_metadata,float64,69,0,69,1.0,0
+raw__csv__container_origin,container_origin,raw,Artists,music_metadata,object,69,68,1,0.0145,65
+raw__csv__container_origin,container_origin,raw,Genres,music_metadata,object,69,68,1,0.0145,43
+raw__csv__container_origin,container_origin,raw,Origin,other,object,69,69,0,0.0,10
+raw__csv__feature_statistics,feature_statistics,raw,Feature Name,context,object,126,126,0,0.0,37
+raw__csv__feature_statistics,feature_statistics,raw,Source Type,context,object,126,126,0,0.0,4
+raw__csv__feature_statistics,feature_statistics,raw,Date Created,date_time,int64,126,126,0,0.0,36
+raw__csv__feature_statistics,feature_statistics,raw,First Played,date_time,int64,126,126,0,0.0,126
+raw__csv__feature_statistics,feature_statistics,raw,Last Played,date_time,int64,126,126,0,0.0,126
+raw__csv__feature_statistics,feature_statistics,raw,Play Duration Milliseconds,duration,int64,126,126,0,0.0,126
+raw__csv__music_play_activity,music_play_activity,raw,Radio Format,context,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Shared Activity Devices-Current,context,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Shared Activity Devices-Max,context,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Source Model,context,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Source Radio Name,context,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Source Radio Type,context,object,22872,15,22857,0.9993,1
+raw__csv__music_play_activity,music_play_activity,raw,Container Artist Name,context,object,22872,39,22833,0.9983,10
+raw__csv__music_play_activity,music_play_activity,raw,Container Radio Station Version,context,object,22872,972,21900,0.9575,50
+raw__csv__music_play_activity,music_play_activity,raw,Container Name,context,object,22872,1239,21633,0.9458,77
+raw__csv__music_play_activity,music_play_activity,raw,Display Language,context,object,22872,3028,19844,0.8676,20
+raw__csv__music_play_activity,music_play_activity,raw,Container Album Name,context,object,22872,3902,18970,0.8294,194
+raw__csv__music_play_activity,music_play_activity,raw,User's Audio Quality,context,object,22872,6617,16255,0.7107,2
+raw__csv__music_play_activity,music_play_activity,raw,Provided Codec,context,object,22872,9406,13466,0.5888,7
+raw__csv__music_play_activity,music_play_activity,raw,Provided Playback Format,context,object,22872,9406,13466,0.5888,2
+raw__csv__music_play_activity,music_play_activity,raw,User's Playback Format,context,object,22872,9983,12889,0.5635,2
+raw__csv__music_play_activity,music_play_activity,raw,Container Origin Type,context,object,22872,15454,7418,0.3243,13
+raw__csv__music_play_activity,music_play_activity,raw,Client Device Name,context,object,22872,22872,0,0.0,27
+raw__csv__music_play_activity,music_play_activity,raw,Client Platform,context,object,22872,22872,0,0.0,1
+raw__csv__music_play_activity,music_play_activity,raw,Container Type,context,object,22872,22872,0,0.0,6
+raw__csv__music_play_activity,music_play_activity,raw,Device App Name,context,object,22872,22872,0,0.0,3
+raw__csv__music_play_activity,music_play_activity,raw,Device App Version,context,object,22872,22872,0,0.0,8
+raw__csv__music_play_activity,music_play_activity,raw,Device OS Name,context,object,22872,22872,0,0.0,8
+raw__csv__music_play_activity,music_play_activity,raw,Device OS Version,context,object,22872,22872,0,0.0,15
+raw__csv__music_play_activity,music_play_activity,raw,Device Type,context,object,22872,22872,0,0.0,4
+raw__csv__music_play_activity,music_play_activity,raw,Feature Name,context,object,22872,22872,0,0.0,96
+raw__csv__music_play_activity,music_play_activity,raw,Offline,context,bool,22872,22872,0,0.0,2
+raw__csv__music_play_activity,music_play_activity,raw,Repeat Play,context,object,22872,22872,0,0.0,4
+raw__csv__music_play_activity,music_play_activity,raw,Shuffle Play,context,object,22872,22872,0,0.0,3
+raw__csv__music_play_activity,music_play_activity,raw,Source Type,context,object,22872,22872,0,0.0,2
+raw__csv__music_play_activity,music_play_activity,raw,Radio Station Country,count,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Display Count,count,float64,22872,1068,21804,0.9533,1
+raw__csv__music_play_activity,music_play_activity,raw,IP Country Code,count,object,22872,22872,0,0.0,3
+raw__csv__music_play_activity,music_play_activity,raw,ISO Country,count,object,22872,22872,0,0.0,1
+raw__csv__music_play_activity,music_play_activity,raw,Recommended Content Localization Key,date_time,object,22872,285,22587,0.9875,13
+raw__csv__music_play_activity,music_play_activity,raw,Pronunciation Displayed,date_time,object,22872,1194,21678,0.9478,2
+raw__csv__music_play_activity,music_play_activity,raw,Translation Displayed,date_time,object,22872,1194,21678,0.9478,2
+raw__csv__music_play_activity,music_play_activity,raw,Event End Timestamp,date_time,object,22872,13820,9052,0.3958,13732
+raw__csv__music_play_activity,music_play_activity,raw,Event Timestamp,date_time,object,22872,13820,9052,0.3958,13597
+raw__csv__music_play_activity,music_play_activity,raw,Event Post Date Time,date_time,int64,22872,22872,0,0.0,1731
+raw__csv__music_play_activity,music_play_activity,raw,Event Received Timestamp,date_time,object,22872,22872,0,0.0,15448
+raw__csv__music_play_activity,music_play_activity,raw,Event Start Timestamp,date_time,object,22872,22872,0,0.0,22513
+raw__csv__music_play_activity,music_play_activity,raw,Radio Station Position,duration,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Shelf Content Position,duration,float64,22872,423,22449,0.9815,12
+raw__csv__music_play_activity,music_play_activity,raw,Vocal Attenuation Duration,duration,float64,22872,10300,12572,0.5497,12
+raw__csv__music_play_activity,music_play_activity,raw,End Position In Milliseconds,duration,float64,22872,13820,9052,0.3958,9060
+raw__csv__music_play_activity,music_play_activity,raw,Play Duration Milliseconds,duration,float64,22872,13820,9052,0.3958,9420
+raw__csv__music_play_activity,music_play_activity,raw,Media Duration In Milliseconds,duration,float64,22872,22870,2,0.0001,3840
+raw__csv__music_play_activity,music_play_activity,raw,Milliseconds Since Play,duration,int64,22872,22872,0,0.0,4918
+raw__csv__music_play_activity,music_play_activity,raw,Start Position In Milliseconds,duration,int64,22872,22872,0,0.0,2066
+raw__csv__music_play_activity,music_play_activity,raw,UTC Offset In Seconds,duration,int64,22872,22872,0,0.0,2
+raw__csv__music_play_activity,music_play_activity,raw,Container Personalized ID,identifier,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Container Season ID,identifier,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,House ID,identifier,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Legacy Playback ID,identifier,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Local Radio Station ID,identifier,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Local Radio Station TuneIn ID,identifier,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Metrics Client ID,identifier,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Radio User ID,identifier,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Subscription Bundle ID,identifier,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Vocal Attenuation Model ID,identifier,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Radio Station ID,identifier,object,22872,9,22863,0.9996,1
+raw__csv__music_play_activity,music_play_activity,raw,Shelf Content Identifier,identifier,object,22872,175,22697,0.9923,22
+raw__csv__music_play_activity,music_play_activity,raw,Container Playlist Folder ID,identifier,float64,22872,334,22538,0.9854,6
+raw__csv__music_play_activity,music_play_activity,raw,Container Library ID,identifier,object,22872,355,22517,0.9845,4
+raw__csv__music_play_activity,music_play_activity,raw,Radio Seed ID,identifier,object,22872,581,22291,0.9746,38
+raw__csv__music_play_activity,music_play_activity,raw,Container Playlist ID,identifier,object,22872,763,22109,0.9666,52
+raw__csv__music_play_activity,music_play_activity,raw,Container Radio Station ID,identifier,object,22872,1062,21810,0.9536,50
+raw__csv__music_play_activity,music_play_activity,raw,Referral ID,identifier,object,22872,1347,21525,0.9411,80
+raw__csv__music_play_activity,music_play_activity,raw,Subscription Offer ID,identifier,object,22872,2649,20223,0.8842,1
+raw__csv__music_play_activity,music_play_activity,raw,Container Global Playlist ID,identifier,object,22872,3095,19777,0.8647,67
+raw__csv__music_play_activity,music_play_activity,raw,Container ID,identifier,object,22872,8008,14864,0.6499,321
+raw__csv__music_play_activity,music_play_activity,raw,Device Identifier,identifier,object,22872,8937,13935,0.6093,5
+raw__csv__music_play_activity,music_play_activity,raw,Container iTunes Playlist ID,identifier,float64,22872,13533,9339,0.4083,102
+raw__csv__music_play_activity,music_play_activity,raw,Provider ID,identifier,float64,22872,13813,9059,0.3961,123
+raw__csv__music_play_activity,music_play_activity,raw,Sales Order Vendor ID,identifier,float64,22872,13812,9060,0.3961,124
+raw__csv__music_play_activity,music_play_activity,raw,Promotion Scenario ID,identifier,float64,22872,13820,9052,0.3958,2
+raw__csv__music_play_activity,music_play_activity,raw,Subscription User ID,identifier,float64,22872,13820,9052,0.3958,2
+raw__csv__music_play_activity,music_play_activity,raw,Apple ID Number,identifier,int64,22872,22872,0,0.0,1
+raw__csv__music_play_activity,music_play_activity,raw,Event ID,identifier,object,22872,22872,0,0.0,22869
+raw__csv__music_play_activity,music_play_activity,raw,Managed ID,identifier,bool,22872,22872,0,0.0,1
+raw__csv__music_play_activity,music_play_activity,raw,Subscription Discovery Mode,music_metadata,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,IP Network,music_metadata,object,22872,11181,11691,0.5111,2
+raw__csv__music_play_activity,music_play_activity,raw,IP Network Type,music_metadata,object,22872,11181,11691,0.5111,2
+raw__csv__music_play_activity,music_play_activity,raw,Album Name,music_metadata,object,22872,14209,8663,0.3788,1841
+raw__csv__music_play_activity,music_play_activity,raw,Song Name,music_metadata,object,22872,22872,0,0.0,3104
+raw__csv__music_play_activity,music_play_activity,raw,Camera Option,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Carrier Name,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Client Build Version,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Client IP Address,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Contingency,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Continuity Microphone Used,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Grouping,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Is Collaborative,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Key Request,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Lease Limit,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Matched Content,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Shared Activity Type,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Subscribed State,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Subscription Partner,other,float64,22872,0,22872,1.0,0
+raw__csv__music_play_activity,music_play_activity,raw,Radio Type,other,object,22872,9,22863,0.9996,4
+raw__csv__music_play_activity,music_play_activity,raw,Report Type,other,float64,22872,9,22863,0.9996,2
+raw__csv__music_play_activity,music_play_activity,raw,Transition Type,other,object,22872,216,22656,0.9906,3
+raw__csv__music_play_activity,music_play_activity,raw,Shelf Type,other,object,22872,508,22364,0.9778,13
+raw__csv__music_play_activity,music_play_activity,raw,Shelf Index,other,float64,22872,555,22317,0.9757,14
+raw__csv__music_play_activity,music_play_activity,raw,Shelf Visible,other,object,22872,555,22317,0.9757,2
+raw__csv__music_play_activity,music_play_activity,raw,Is CMA Station,other,object,22872,858,22014,0.9625,1
+raw__csv__music_play_activity,music_play_activity,raw,Is Heatseeker Station,other,object,22872,858,22014,0.9625,1
+raw__csv__music_play_activity,music_play_activity,raw,Is Heavy Rotation Station,other,object,22872,858,22014,0.9625,1
+raw__csv__music_play_activity,music_play_activity,raw,Subscription Period,other,object,22872,2649,20223,0.8842,1
+raw__csv__music_play_activity,music_play_activity,raw,Ownership Type,other,float64,22872,3901,18971,0.8294,3
+raw__csv__music_play_activity,music_play_activity,raw,Provided Audio Bit Depth,other,float64,22872,9406,13466,0.5888,3
+raw__csv__music_play_activity,music_play_activity,raw,Provided Audio Channel,other,object,22872,9406,13466,0.5888,3
+raw__csv__music_play_activity,music_play_activity,raw,Provided Audio Sample Rate,other,float64,22872,9406,13466,0.5888,7
+raw__csv__music_play_activity,music_play_activity,raw,Provided Bit Rate,other,float64,22872,9406,13466,0.5888,5
+raw__csv__music_play_activity,music_play_activity,raw,Is Vocal Attenuation,other,object,22872,10300,12572,0.5497,3
+raw__csv__music_play_activity,music_play_activity,raw,End Reason Type,other,object,22872,10792,12080,0.5282,11
+raw__csv__music_play_activity,music_play_activity,raw,Personalized Name,other,float64,22872,13533,9339,0.4083,102
+raw__csv__music_play_activity,music_play_activity,raw,Royalty Free,other,object,22872,13813,9059,0.3961,1
+raw__csv__music_play_activity,music_play_activity,raw,Grace Period,other,object,22872,13820,9052,0.3958,1
+raw__csv__music_play_activity,music_play_activity,raw,Is Subscription Owner?,other,object,22872,13820,9052,0.3958,1
+raw__csv__music_play_activity,music_play_activity,raw,Subscription Pool Type,other,object,22872,13820,9052,0.3958,2
+raw__csv__music_play_activity,music_play_activity,raw,User's Transition Type,other,object,22872,16000,6872,0.3005,2
+raw__csv__music_play_activity,music_play_activity,raw,Media Bundle App Name,other,object,22872,17346,5526,0.2416,1
+raw__csv__music_play_activity,music_play_activity,raw,Bundle Version,other,object,22872,17460,5412,0.2366,6
+raw__csv__music_play_activity,music_play_activity,raw,Siri Request,other,object,22872,18822,4050,0.1771,1
+raw__csv__music_play_activity,music_play_activity,raw,Evaluation Variant,other,object,22872,19630,3242,0.1417,22
+raw__csv__music_play_activity,music_play_activity,raw,IP Region Code,other,object,22872,22664,208,0.0091,9
+raw__csv__music_play_activity,music_play_activity,raw,Age Bucket,other,object,22872,22872,0,0.0,1
+raw__csv__music_play_activity,music_play_activity,raw,Apple Music Subscription,other,bool,22872,22872,0,0.0,2
+raw__csv__music_play_activity,music_play_activity,raw,Auto Play,other,object,22872,22872,0,0.0,4
+raw__csv__music_play_activity,music_play_activity,raw,Build Version,other,object,22872,22872,0,0.0,28
+raw__csv__music_play_activity,music_play_activity,raw,Display Type,other,object,22872,22872,0,0.0,4
+raw__csv__music_play_activity,music_play_activity,raw,Event Reason Hint Type,other,object,22872,22872,0,0.0,2
+raw__csv__music_play_activity,music_play_activity,raw,Event Type,other,object,22872,22872,0,0.0,3
+raw__csv__music_play_activity,music_play_activity,raw,IP City,other,object,22872,22872,0,0.0,17
+raw__csv__music_play_activity,music_play_activity,raw,IP Latitude,other,float64,22872,22872,0,0.0,17
+raw__csv__music_play_activity,music_play_activity,raw,IP Longitude,other,float64,22872,22872,0,0.0,17
+raw__csv__music_play_activity,music_play_activity,raw,Is Delegated,other,bool,22872,22872,0,0.0,1
+raw__csv__music_play_activity,music_play_activity,raw,Item Type,other,object,22872,22872,0,0.0,3
+raw__csv__music_play_activity,music_play_activity,raw,Media Bundle Type,other,object,22872,22872,0,0.0,2
+raw__csv__music_play_activity,music_play_activity,raw,Media Type,other,object,22872,22872,0,0.0,2
+raw__csv__music_play_activity,music_play_activity,raw,Session Is Shared,other,bool,22872,22872,0,0.0,1
+raw__csv__music_play_activity,music_play_activity,raw,Store Front Name,other,object,22872,22872,0,0.0,1
+raw__csv__music_play_activity,music_play_activity,raw,Use Listening History,other,bool,22872,22872,0,0.0,2
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,raw,Source Type,context,object,5042,5042,0,0.0,8
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,raw,Country,count,object,5042,5042,0,0.0,1
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,raw,Play Count,count,int64,5042,5042,0,0.0,24
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,raw,Skip Count,count,int64,5042,5042,0,0.0,9
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,raw,Date Played,date_time,int64,5042,5042,0,0.0,133
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,raw,Play Duration Milliseconds,duration,int64,5042,5042,0,0.0,2071
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,raw,Track Reference,identifier,float64,5042,4652,390,0.0774,2643
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,raw,Track Identifier,identifier,int64,5042,5042,0,0.0,2907
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,raw,Track Description,music_metadata,object,5042,5038,4,0.0008,2805
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,raw,End Reason Type,other,object,5042,5042,0,0.0,10
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,raw,Hours,other,object,5042,5042,0,0.0,162
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,raw,Ignore For Recommendations,other,bool,5042,5042,0,0.0,2
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,raw,Media type,other,object,5042,5042,0,0.0,2
+raw__csv__play_statistics,play_statistics,raw,Source Type,context,object,36,36,0,0.0,6
+raw__csv__play_statistics,play_statistics,raw,Date Created,date_time,int64,36,36,0,0.0,36
+raw__csv__play_statistics,play_statistics,raw,First Played,date_time,int64,36,36,0,0.0,36
+raw__csv__play_statistics,play_statistics,raw,Last Played,date_time,int64,36,36,0,0.0,36
+raw__csv__play_statistics,play_statistics,raw,Play Duration Milliseconds,duration,int64,36,36,0,0.0,36
+raw__csv__recent_impressions,recent_impressions,raw,Container Name,context,object,359,162,197,0.5487,113
+raw__csv__recent_impressions,recent_impressions,raw,Country,count,object,359,359,0,0.0,1
+raw__csv__recent_impressions,recent_impressions,raw,Impression Create Date,date_time,int64,359,359,0,0.0,9
+raw__csv__recent_impressions,recent_impressions,raw,Recommendation ID,identifier,object,359,359,0,0.0,90
+raw__csv__recent_impressions,recent_impressions,raw,Location,other,object,359,262,97,0.2702,9
+raw__csv__recently_played_containers,recently_played_containers,raw,Container Description,context,object,50,30,20,0.4,30
+raw__csv__recently_played_containers,recently_played_containers,raw,Container Type,context,object,50,48,2,0.04,3
+raw__csv__recently_played_containers,recently_played_containers,raw,Country,count,object,50,50,0,0.0,1
+raw__csv__recently_played_containers,recently_played_containers,raw,Last Plays in Sequence,count,int64,50,50,0,0.0,1
+raw__csv__recently_played_containers,recently_played_containers,raw,Total Plays,count,int64,50,50,0,0.0,22
+raw__csv__recently_played_containers,recently_played_containers,raw,Entry Creation Date,date_time,object,50,50,0,0.0,50
+raw__csv__recently_played_containers,recently_played_containers,raw,Entry Modification Date,date_time,object,50,50,0,0.0,48
+raw__csv__recently_played_containers,recently_played_containers,raw,Track Reference,identifier,float64,50,0,50,1.0,0
+raw__csv__recently_played_containers,recently_played_containers,raw,Container Reference,identifier,object,50,48,2,0.04,48
+raw__csv__recently_played_containers,recently_played_containers,raw,Track Description,music_metadata,float64,50,0,50,1.0,0
+raw__csv__recently_played_containers,recently_played_containers,raw,Ignore for recommendations,other,bool,50,50,0,0.0,1
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Container Description,context,object,200,156,44,0.22,21
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Container Type,context,object,200,181,19,0.095,2
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Feature Name,context,object,200,200,0,0.0,16
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Country,count,object,200,200,0,0.0,1
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Total plays,count,int64,200,200,0,0.0,5
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Total skips,count,int64,200,200,0,0.0,4
+raw__csv__recently_played_tracks,recently_played_tracks,raw,First Event Timestamp,date_time,object,200,200,0,0.0,200
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Last Event End Timestamp,date_time,object,200,200,0,0.0,200
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Last Event Received Timestamp,date_time,object,200,200,0,0.0,172
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Last Event Start Timestamp,date_time,object,200,200,0,0.0,200
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Last Modified,date_time,object,200,200,0,0.0,200
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Max Event End Position in millis,duration,int64,200,200,0,0.0,176
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Max Play Duration in millis,duration,int64,200,200,0,0.0,191
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Media duration in millis,duration,int64,200,200,0,0.0,189
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Min Event Start Position in millis,duration,int64,200,200,0,0.0,11
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Total play duration in millis,duration,int64,200,200,0,0.0,190
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Container Reference,identifier,object,200,181,19,0.095,23
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Track Reference,identifier,int64,200,200,0,0.0,200
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Track Description,music_metadata,object,200,200,0,0.0,199
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Ignore For Recommendations,other,bool,200,200,0,0.0,2
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Last End Reason Tyoe,other,object,200,200,0,0.0,9
+raw__csv__recently_played_tracks,recently_played_tracks,raw,Media type,other,object,200,200,0,0.0,1
+raw__csv__top_content,top_content,raw,Source Type,context,object,196,196,0,0.0,14
+raw__csv__top_content,top_content,raw,Country,count,object,196,196,0,0.0,1
+raw__csv__top_content,top_content,raw,Rankings,count,int64,196,196,0,0.0,169
+raw__csv__top_content,top_content,raw,First Played,date_time,int64,196,196,0,0.0,172
+raw__csv__top_content,top_content,raw,Last Played,date_time,int64,196,196,0,0.0,173
+raw__csv__top_content,top_content,raw,Last Received,date_time,int64,196,196,0,0.0,144
+raw__csv__top_content,top_content,raw,Play Duration Milliseconds,duration,int64,196,196,0,0.0,191
+raw__csv__top_content,top_content,raw,Content,other,object,196,196,0,0.0,196

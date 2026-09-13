@@ -13,7 +13,6 @@ import streamlit as st
 
 from music_analytics.paths import clean_path, root_path
 
-
 st.set_page_config(
     page_title="Sumi's Music Universe",
     layout="wide",
@@ -89,7 +88,6 @@ role_name = {
     "Exclude From Recommendations": "Leave Alone",
 }
 
-
 name_map = {
     "start": "Started",
     "end": "Ended",
@@ -130,7 +128,6 @@ name_map = {
     "full_plays": "Completed Plays",
     "friction_plays": "Skipped Plays",
 }
-
 
 def font_css() -> str:
     paths = [
@@ -550,11 +547,9 @@ def need_table(name: str) -> Path:
 
     return path
 
-
 @st.cache_data(show_spinner=False)
 def load_table(name: str) -> pd.DataFrame:
     return pd.read_parquet(need_table(name))
-
 
 @st.cache_data(show_spinner=False)
 def load_data() -> dict[str, pd.DataFrame]:
@@ -668,17 +663,26 @@ def date_time(value, short: bool = True) -> str:
 
     time = pd.to_datetime(value)
 
-    if short:
-        return time.strftime("%b %-d · %-I:%M %p")
+    month = time.strftime("%b")
+    day = time.day
+    year = time.year
+    hour = time.hour % 12 or 12
+    minute = time.minute
+    period = "AM" if time.hour < 12 else "PM"
 
-    return time.strftime("%b %-d, %Y · %-I:%M %p")
+    if short:
+        return f"{month} {day} · {hour}:{minute:02d} {period}"
+
+    return f"{month} {day}, {year} · {hour}:{minute:02d} {period}"
 
 
 def day_text(value) -> str:
     if pd.isna(value):
         return ""
 
-    return pd.to_datetime(value).strftime("%b %-d, %Y")
+    time = pd.to_datetime(value)
+
+    return f"{time.strftime('%b')} {time.day}, {time.year}"
 
 
 def score_value(profile: pd.DataFrame, metric: str) -> float:

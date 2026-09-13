@@ -1,0 +1,31 @@
+table_key,table_name,column_name,dtype,non_null_count,unique_count,parse_rate,min_date,max_date
+raw__csv__container_details,container_details,Date Created,int64,162,35,1.0,1970-01-01 00:00:00.020251018+00:00,1970-01-01 00:00:00.020260311+00:00
+raw__csv__container_details,container_details,Last Played,int64,162,162,1.0,1970-01-01 00:29:20.766207746+00:00,1970-01-01 00:29:33.191684120+00:00
+raw__csv__container_origin,container_origin,Date Created,int64,69,35,1.0,1970-01-01 00:00:00.020251018+00:00,1970-01-01 00:00:00.020260311+00:00
+raw__csv__container_origin,container_origin,Last Played,int64,69,69,1.0,1970-01-01 00:29:20.766207746+00:00,1970-01-01 00:29:33.191684120+00:00
+raw__csv__feature_statistics,feature_statistics,Date Created,int64,126,36,1.0,1970-01-01 00:00:00.020251018+00:00,1970-01-01 00:00:00.020260311+00:00
+raw__csv__feature_statistics,feature_statistics,First Played,int64,126,126,1.0,1970-01-01 00:29:20.766123819+00:00,1970-01-01 00:29:33.189596385+00:00
+raw__csv__feature_statistics,feature_statistics,Last Played,int64,126,126,1.0,1970-01-01 00:29:20.766207746+00:00,1970-01-01 00:29:33.191684120+00:00
+raw__csv__music_play_activity,music_play_activity,Event Post Date Time,int64,22872,1731,1.0,1970-01-01 00:00:00.029345833+00:00,1970-01-01 00:00:00.029558690+00:00
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,Date Played,int64,5042,133,1.0,1970-01-01 00:00:00.020251018+00:00,1970-01-01 00:00:00.020260310+00:00
+raw__csv__play_statistics,play_statistics,Date Created,int64,36,36,1.0,1970-01-01 00:00:00.020251018+00:00,1970-01-01 00:00:00.020260311+00:00
+raw__csv__play_statistics,play_statistics,First Played,int64,36,36,1.0,1970-01-01 00:29:20.766123819+00:00,1970-01-01 00:29:33.189596385+00:00
+raw__csv__play_statistics,play_statistics,Last Played,int64,36,36,1.0,1970-01-01 00:29:20.799863030+00:00,1970-01-01 00:29:33.191684120+00:00
+raw__csv__recent_impressions,recent_impressions,Impression Create Date,int64,359,9,1.0,1970-01-01 00:00:00.020260210+00:00,1970-01-01 00:00:00.020260312+00:00
+raw__csv__recently_played_containers,recently_played_containers,Entry Creation Date,object,50,50,1.0,2025-11-06 21:37:05.200000+00:00,2026-03-11 01:11:18.912000+00:00
+raw__csv__recently_played_containers,recently_played_containers,Entry Modification Date,object,50,48,1.0,2025-11-06 21:37:05.246000+00:00,2026-03-11 01:11:19.162000+00:00
+raw__csv__recently_played_tracks,recently_played_tracks,First Event Timestamp,object,200,200,1.0,2026-02-17 04:32:04.858000+00:00,2026-03-12 04:08:42.785000+00:00
+raw__csv__recently_played_tracks,recently_played_tracks,Last Event End Timestamp,object,200,200,1.0,2026-03-11 01:05:20.298000+00:00,2026-03-12 04:14:52.364000+00:00
+raw__csv__recently_played_tracks,recently_played_tracks,Last Event Received Timestamp,object,200,172,1.0,2026-03-11 01:05:20.361000+00:00,2026-03-12 04:14:52.408000+00:00
+raw__csv__recently_played_tracks,recently_played_tracks,Last Event Start Timestamp,object,200,200,1.0,2026-03-11 01:01:48.298000+00:00,2026-03-12 04:11:53.249000+00:00
+raw__csv__recently_played_tracks,recently_played_tracks,Last Modified,object,200,200,1.0,2026-02-17 04:32:04.858000+00:00,2026-03-12 04:08:42.785000+00:00
+raw__csv__top_content,top_content,First Played,int64,196,172,1.0,1970-01-01 00:29:20.766123819+00:00,1970-01-01 00:29:33.189967507+00:00
+raw__csv__top_content,top_content,Last Played,int64,196,173,1.0,1970-01-01 00:29:20.799863030+00:00,1970-01-01 00:29:33.191684120+00:00
+raw__csv__top_content,top_content,Last Received,int64,196,144,1.0,1970-01-01 00:29:20.799863054+00:00,1970-01-01 00:29:33.191684155+00:00
+raw__csv__music_play_activity,music_play_activity,Event Received Timestamp,object,22872,15448,0.9993,2025-10-18 00:35:42.650000+00:00,2026-03-14 20:40:26.832000+00:00
+raw__csv__music_play_activity,music_play_activity,Event End Timestamp,object,13820,13732,0.9991,2025-10-18 00:35:42.673000+00:00,2026-03-13 22:20:48.734000+00:00
+raw__csv__music_play_activity,music_play_activity,Event Timestamp,object,13820,13597,0.9991,2025-10-18 00:35:42.673000+00:00,2026-03-13 22:20:48.734000+00:00
+raw__csv__music_play_activity,music_play_activity,Event Start Timestamp,object,22872,22513,0.999,2025-10-18 00:35:42.590000+00:00,2026-03-14 20:40:26.450000+00:00
+raw__csv__music_play_activity,music_play_activity,Pronunciation Displayed,object,1194,2,0.0,,
+raw__csv__music_play_activity,music_play_activity,Recommended Content Localization Key,object,285,13,0.0,,
+raw__csv__music_play_activity,music_play_activity,Translation Displayed,object,1194,2,0.0,,

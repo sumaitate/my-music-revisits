@@ -1,0 +1,30 @@
+table_key,table_name,column_name,column_family,non_null_numeric_count,minimum,median,mean,maximum,zero_count,negative_count
+raw__csv__container_details,container_details,Play Count,count,162,1.0,2.0,5.530864197530864,140.0,0,0
+raw__csv__container_details,container_details,Play Duration Milliseconds,duration,162,30863.0,332207.0,926311.6111111111,30178797.0,0,0
+raw__csv__container_origin,container_origin,Play Count,count,69,1.0,5.0,12.985507246376812,161.0,0,0
+raw__csv__container_origin,container_origin,Play Duration Milliseconds,duration,69,37537.0,755212.0,2174818.565217391,34123795.0,0,0
+raw__csv__feature_statistics,feature_statistics,Play Duration Milliseconds,duration,126,30000.0,463135.5,1303678.5873015872,34311391.0,0,0
+raw__csv__music_play_activity,music_play_activity,Display Count,count,1068,0.0,0.0,0.0,0.0,1068,0
+raw__csv__music_play_activity,music_play_activity,End Position In Milliseconds,duration,13820,0.0,9425.5,60836.99507959479,6105000.0,743,0
+raw__csv__music_play_activity,music_play_activity,Media Duration In Milliseconds,duration,22870,0.0,194733.0,203240.89138609532,7200500.0,20,0
+raw__csv__music_play_activity,music_play_activity,Milliseconds Since Play,duration,22872,0.0,200.0,1432787.5358516965,1121113000.0,595,0
+raw__csv__music_play_activity,music_play_activity,Play Duration Milliseconds,duration,13820,0.0,5006.5,49777.41331403763,684632.0,340,0
+raw__csv__music_play_activity,music_play_activity,Shelf Content Position,duration,423,0.0,1.0,2.3498817966903074,15.0,173,0
+raw__csv__music_play_activity,music_play_activity,Start Position In Milliseconds,duration,22872,0.0,0.0,6412.132257782441,874261.0,19894,0
+raw__csv__music_play_activity,music_play_activity,UTC Offset In Seconds,duration,22872,-18000.0,-18000.0,-17175.55089192025,-14400.0,0,22872
+raw__csv__music_play_activity,music_play_activity,Vocal Attenuation Duration,duration,10300,0.0,0.0,17.259126213592232,33983.0,10288,0
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,Play Count,count,5042,0.0,0.0,0.6622372074573581,44.0,2923,0
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,Play Duration Milliseconds,duration,5042,0.0,0.0,107230.0640618802,8038360.0,2923,0
+raw__csv__play_history_daily_tracks,play_history_daily_tracks,Skip Count,count,5042,0.0,1.0,0.8891312971043237,9.0,1156,0
+raw__csv__play_statistics,play_statistics,Play Duration Milliseconds,duration,36,127267.0,3188180.5,4562875.055555556,34343391.0,0,0
+raw__csv__recently_played_containers,recently_played_containers,Last Plays in Sequence,count,50,1.0,1.0,1.0,1.0,0,0
+raw__csv__recently_played_containers,recently_played_containers,Total Plays,count,50,1.0,4.5,12.08,86.0,0,0
+raw__csv__recently_played_tracks,recently_played_tracks,Max Event End Position in millis,duration,200,0.0,7932.0,64644.655,344692.0,24,0
+raw__csv__recently_played_tracks,recently_played_tracks,Max Play Duration in millis,duration,200,2.0,5237.0,59384.71,344762.0,0,0
+raw__csv__recently_played_tracks,recently_played_tracks,Media duration in millis,duration,200,61334.0,205242.0,212568.495,414294.0,0,0
+raw__csv__recently_played_tracks,recently_played_tracks,Min Event Start Position in millis,duration,200,0.0,0.0,1363.625,68015.0,190,0
+raw__csv__recently_played_tracks,recently_played_tracks,Total play duration in millis,duration,200,2.0,6192.5,82497.615,950074.0,0,0
+raw__csv__recently_played_tracks,recently_played_tracks,Total plays,count,200,1.0,1.0,1.455,6.0,0,0
+raw__csv__recently_played_tracks,recently_played_tracks,Total skips,count,200,0.0,1.0,0.91,3.0,43,0
+raw__csv__top_content,top_content,Play Duration Milliseconds,duration,196,32627.0,265588.0,1675642.551020408,75498878.0,0,0
+raw__csv__top_content,top_content,Rankings,count,196,1.0,71.5,75.21938775510205,169.0,0,0
