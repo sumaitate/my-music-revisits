@@ -1,2533 +1,1062 @@
-import base64
+"""
+My Music Revisits — Streamlit app
+
+Requires: streamlit >= 1.40 (for st.pills, and st.container(key=...) used for styling).
+Upgrade with:
+    pip install -U streamlit
+
+DATA ASSUMPTIONS (adjust the column lookups below if yours differ):
+- plays.parquet   : minutes  [+ optionally artist, track, genre per event,
+                     + optionally a timestamp column for the "Listening Times"
+                     heatmap — tries played_at / timestamp / ts / datetime /
+                     played_datetime / played_at_utc]
+- tracks.parquet  : track, artist, genre, plays, full_rate, friction_rate
+                     [+ optionally recommend_score]
+- genres.parquet  : genre, plays
+- artists.parquet : artist, plays
+- days.parquet    : date, minutes, plays, tracks, top_artist, top_genre
+- hours.parquet   : optional. Used for the heatmap only if plays has no timestamp
+                     column (the heatmap is built from plays timestamps first so it
+                     can be shown in EST). Tries to detect weekday / time-bucket /
+                     minutes columns automatically. If neither works, that one
+                     section just shows a note — tell me the real column names and
+                     I'll wire it up.
+"""
+
 import html
-import math
-import sys
+import re
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
-
-import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
+import plotly.express as px
 import streamlit as st
 
-from music_analytics.paths import clean_path, root_path
+st.set_page_config(page_title="My Music Revisits", page_icon="💿", layout="wide")
 
-st.set_page_config(
-    page_title="Sumi's Music Universe",
-    layout="wide",
-)
+LISTENER_NAME = "Sumaitat"  # <- change to your name
 
+# Listening-times heatmap timezone. "Etc/GMT+5" is a fixed UTC-5 offset (true EST all year).
+# Use "America/New_York" instead if you want daylight saving time applied.
+TIMEZONE = "Etc/GMT+5"
+TZ_LABEL = "EST"
 
-color = {
-    "page": "#EEF9FF",
-    "page2": "#F6FCFF",
-    "panel": "rgba(235, 247, 255, 0.68)",
-    "text": "#101010",
-    "body": "#222222",
-    "soft": "#4A4A4A",
-    "line": "#101010",
-    "border": "#A8C7D8",
-    "grid": "rgba(104, 143, 160, 0.16)",
-    "sky": "#71CFF2",
-    "cyan": "#54C7EC",
-    "mint": "#8BE8C7",
-    "yellow": "#F5D76E",
-    "coral": "#F9786B",
-    "pink": "#F7A7C8",
-    "purple": "#B9A2F7",
-    "teal": "#4DC6B6",
-    "orange": "#F6A04D",
-    "gray": "#C8D4DA",
-    "slate": "#7E9099",
-    "red": "#E95A4F",
+COLORS = {
+    "page": "#EDF8FF",      # Ice Blue
+    "page_soft": "rgba(237, 248, 255, 0.88)",  # main content backing at 70% opacity (keeps text readable, dots peek through)
+    "ink": "#17252D",
+    "black": "#101010",     # labels and card titles
+    "muted": "#244F82",     # navy blue (replaces the grey text)
+    "select": "#8B1230",    # dark red: selected tab / selected pills
+    "pink": "#F5A8CD",      # Candy Pink
+    "cyan": "#A8E8CE",      # Mint
+    "mint": "#A8E8CE",      # Mint
+    "purple": "#C5ADFF",    # Lavender
+    "yellow": "#FFE28C",    # Butter
+    "coral": "#F5A8CD",     # Candy Pink
+    "blue": "#A9D6F5",      # polka dots (soft blue)
+    "sky": "#D3EBFB",       # tab backgrounds (soft blue)
+    "sky_soft": "rgba(211, 235, 251, 0.78)",   # tab background, slightly see-through so the dots show
+    "sky_shade": "rgba(150, 196, 232, 0.50)",  # soft shadow gradient at the tab edges
+    "wash": "rgba(252, 200, 226, 0.30)",       # lighter pink, low opacity (every pink panel, card and tab)
 }
 
+PALETTE = [
+    COLORS["purple"],
+    COLORS["pink"],
+    COLORS["yellow"],
+    COLORS["mint"],
+    COLORS["cyan"],
+]
 
-genre_color = {
-    "K-Pop": "#71CFF2",
-    "Pop": "#F7A7C8",
-    "Alternative": "#F9786B",
-    "R&B/Soul": "#8BE8C7",
-    "Hip-Hop/Rap": "#4DC6B6",
-    "Relaxation": "#F5D76E",
-    "Electronic": "#F6A04D",
-    "Soundtrack": "#B9A2F7",
-    "Jazz": "#C8D4DA",
-    "Rock": "#7E9099",
-    "Hard Rock": "#6F7F88",
-    "Unknown Genre": "#D2DEE4",
-}
+WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+BUCKETS = ["00-04", "04-08", "08-12", "12-16", "16-20", "20-24"]
+BUCKET_LABELS = dict(zip(BUCKETS, ["12–4 AM", "4–8 AM", "8 AM–12 PM", "12–4 PM", "4–8 PM", "8 PM–12 AM"]))
 
-
-role_color = {
-    "Playlist": "#8BE8C7",
-    "Discovery": "#71CFF2",
-    "Playback": "#F9786B",
-    "Browsing": "#B9A2F7",
-    "Unknown": "#C8D4DA",
-}
+QUICK_MOODS = [
+    "Rainy night", "Workout", "Relaxing", "Feel good", "Late night drive",
+    "Romantic", "Study", "Party", "Heartbreak", "Nostalgic",
+    "Angry", "Cozy", "Confident", "Dreamy",
+]
 
 
-class_color = {
-    "Core Favorite": "#54C7EC",
-    "Rediscovery Candidate": "#8BE8C7",
-    "Overexposed or Unstable": "#F6A04D",
-    "General Candidate": "#B9A2F7",
-    "Lost Discovery": "#F7A7C8",
-    "Exclude From Recommendations": "#C8D4DA",
-}
+# ----------------------------------------------------------------------------
+# Data loading
+# ----------------------------------------------------------------------------
+@st.cache_data
+def load_data() -> dict:
+    root = Path(__file__).resolve().parents[1] / "data" / "processed"
+    data = {}
+    for name in ["plays", "tracks", "artists", "genres", "days"]:
+        data[name] = pd.read_parquet(root / f"{name}.parquet")
+    for optional in ["hours", "features"]:
+        path = root / f"{optional}.parquet"
+        data[optional] = pd.read_parquet(path) if path.exists() else pd.DataFrame()
+    return data
 
 
-role_name = {
-    "Core Favorite": "Keep Close",
-    "Rediscovery Candidate": "Rediscover",
-    "Overexposed or Unstable": "Risky",
-    "General Candidate": "Bring Back",
-    "Lost Discovery": "Faded",
-    "Exclude From Recommendations": "Leave Alone",
-}
+# ----------------------------------------------------------------------------
+# Style
+# ----------------------------------------------------------------------------
+def style() -> None:
+    st.markdown(f"""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Pixelify+Sans:wght@500;700&display=swap');
 
-name_map = {
-    "start": "Started",
-    "end": "Ended",
-    "date": "Date",
-    "played_at": "Played",
-    "minutes": "Minutes",
-    "plays": "Plays",
-    "tracks": "Tracks",
-    "artists": "Artists",
-    "albums": "Albums",
-    "genres": "Genres",
-    "top_artist": "Top Artist",
-    "top_genre": "Top Genre",
-    "top_source": "Top Source",
-    "source_label": "Source",
-    "source_role": "Source Type",
-    "session_type": "Session",
-    "full_rate": "Completion",
-    "friction_rate": "Skip Rate",
-    "affinity_score": "Affinity",
-    "ready_reason": "Reason",
-    "candidate_class": "Role",
-    "recommender_ready": "Ready?",
-    "active_days": "Active Days",
-    "playlist_count": "Playlists",
-    "display": "Track",
-    "artist": "Artist",
-    "album": "Album",
-    "genre": "Genre",
-    "track": "Track",
-    "route_value": "Route Strength",
-    "discoveries": "Discoveries",
-    "discovery_share": "Discovery",
-    "repeat_share": "Repeats",
-    "play_share": "Completion",
-    "first_plays": "First Plays",
-    "repeat_plays": "Repeat Plays",
-    "full_plays": "Completed Plays",
-    "friction_plays": "Skipped Plays",
-}
+    /* Polka dots: blue and pink, offset from each other */
+    .stApp {{
+        background-color: {COLORS['page']}; color: {COLORS['ink']};
+        background-image:
+            radial-gradient(circle, {COLORS['blue']} 6px, transparent 6.5px),
+            radial-gradient(circle, {COLORS['pink']} 6px, transparent 6.5px);
+        background-size: 38px 38px, 38px 38px;
+        background-position: 0 0, 19px 19px;
+    }}
+    header[data-testid="stHeader"] {{ background: transparent; }}
+    .block-container {{
+        max-width: 1180px; padding-top: 2rem;
+        background-color: {COLORS['page_soft']};
+    }}
 
-def font_css() -> str:
-    paths = [
-        root_path / "assets" / "fonts" / "Poxel.ttf",
-        root_path / "assets" / "fonts" / "Poxel Font.ttf",
-        root_path / "assets" / "fonts" / "Poxel.otf",
-        root_path / "assets" / "fonts" / "Poxel Font.otf",
+    .section-divider {{ border: none; border-top: 3px solid {COLORS['pink']}; margin: 1.4rem 0; }}
+    h1, h2, h3 {{ font-family: 'Pixelify Sans', monospace !important; color: {COLORS['ink']} !important; }}
+    h1 {{ font-size: clamp(1.7rem, 6vw, 2.6rem) !important; line-height: 1.15 !important; }}
+    .stMarkdown, .stTextInput, .stTextArea, .stMultiSelect, .stButton {{ font-family: 'Nunito', sans-serif; }}
+
+    /* Captions: navy and bold so they're easy to read */
+    [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{
+        color: {COLORS['muted']} !important; opacity: 1 !important;
+        font-size: .88rem !important; font-weight: 600 !important;
+    }}
+    textarea::placeholder, input::placeholder {{ color: #5B84B1 !important; opacity: 1 !important; }}
+
+    /* Hero */
+    .hero {{
+        background: linear-gradient(135deg, #F8FCFF 0%, #DCEEFC 100%);
+        border: 1px solid {COLORS['ink']}; border-radius: 16px;
+        padding: 1.2rem 1.5rem; margin-bottom: 1rem;
+        box-shadow: 0 0 22px rgba(150, 205, 245, .35);
+    }}
+    .eyebrow {{ font-size: .75rem; font-weight: 900; letter-spacing: 1.5px; color: {COLORS['black']}; text-transform: uppercase; margin-bottom: .3rem; }}
+    .small-caps {{ font-size: .75rem; font-weight: 800; letter-spacing: 1.2px; color: {COLORS['black']}; text-transform: uppercase; margin: .4rem 0; }}
+    .highlight {{ border-bottom: 7px solid {COLORS['pink']}; }}
+
+    /* Tabs: blue tab buttons, light low-opacity pink when selected, dark red selected text */
+    div[data-baseweb="tab-list"] {{ gap: .5rem; background: transparent; }}
+    button[data-baseweb="tab"] {{
+        background: {COLORS['sky_soft']}; border: 1px solid {COLORS['ink']};
+        border-radius: 12px 12px 0 0; padding: .5rem 1rem; height: auto;
+    }}
+    button[data-baseweb="tab"] p {{ font-weight: 800; color: {COLORS['ink']}; }}
+    button[data-baseweb="tab"][aria-selected="true"] {{
+        background: {COLORS['wash']}; border: 1px solid {COLORS['select']};
+        box-shadow: inset 0 -3px 0 {COLORS['select']};
+    }}
+    button[data-baseweb="tab"][aria-selected="true"],
+    button[data-baseweb="tab"][aria-selected="true"] * {{ color: {COLORS['select']} !important; }}
+    div[data-baseweb="tab-highlight"], div[data-baseweb="tab-border"] {{ display: none; }}
+    div[data-baseweb="tab-panel"] {{
+        background: linear-gradient(180deg,
+            {COLORS['sky_shade']} 0%,
+            {COLORS['sky_soft']} 14%,
+            {COLORS['sky_soft']} 88%,
+            {COLORS['sky_shade']} 100%);
+        border: 1px solid {COLORS['ink']};
+        border-radius: 0 16px 16px 16px; padding: 1rem 1rem .9rem !important;
+    }}
+
+    /* Panels (light, low-opacity pink cards inside the blue tab) */
+    [class*="st-key-panel_"] {{
+        background: {COLORS['wash']}; border: 1px solid {COLORS['ink']}; border-radius: 14px;
+        padding: 1rem 1.1rem 1.2rem; box-sizing: border-box;
+    }}
+    [class*="st-key-panel_"] .small-caps {{ margin: .8rem 0 .4rem; }}
+
+    /* Overview metric tiles: one grid so every tile lines up and stays the same size per row */
+    .metric-grid {{
+        display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .5rem; margin-bottom: .2rem;
+    }}
+    .metric {{
+        box-sizing: border-box; min-width: 0;
+        background: {COLORS['page']}; border: 1px solid {COLORS['ink']}; border-radius: 10px;
+        padding: .5rem .7rem;
+    }}
+    .metric .muted {{ display: block; font-size: .72rem; font-weight: 800; line-height: 1.2; }}
+    .metric strong {{ display: block; font-size: 1.15rem; line-height: 1.25; }}
+    .metric-sub {{ display: block; font-size: .7rem; font-weight: 700; line-height: 1.2; color: {COLORS['muted']}; }}
+    .kv {{ display: flex; justify-content: space-between; gap: .8rem; padding: .45rem 0; border-bottom: 1px dashed {COLORS['blue']}; }}
+    .kv span {{ font-weight: 700; font-size: .85rem; color: {COLORS['muted']}; }}
+    .kv strong {{ text-align: right; font-size: .9rem; }}
+
+    .genre-row {{ margin-bottom: .6rem; }}
+    .genre-row-top {{ display: flex; justify-content: space-between; gap: .5rem; font-size: .88rem; font-weight: 700; margin-bottom: .25rem; }}
+    .bar-bg {{ background: {COLORS['page']}; border: 1px solid {COLORS['ink']}; border-radius: 999px; height: 10px; overflow: hidden; }}
+    .bar-fill {{ height: 100%; border-radius: 999px; }}
+
+    .bubble {{ border-radius: 999px; background: {COLORS['cyan']}; border: 1px solid {COLORS['ink']}; margin-left: auto; }}
+
+    /* Detail card: used for the selected artist and for every plot click */
+    .info-wrap {{ padding: .6rem 0 .9rem; }}
+    .info-card {{
+        box-sizing: border-box; width: 100%;
+        background: {COLORS['wash']}; border: 1px solid {COLORS['ink']}; border-radius: 10px;
+        padding: .5rem .75rem;
+    }}
+    .info-title {{ font-size: 1.05rem; font-weight: 900; color: {COLORS['black']}; line-height: 1.2; overflow-wrap: anywhere; }}
+    .info-line {{ font-size: .8rem; font-weight: 700; color: {COLORS['ink']}; line-height: 1.35; margin-top: .12rem; overflow-wrap: anywhere; }}
+    .info-title + .info-line {{ margin-top: .25rem; }}
+
+    .rank-chip {{
+        width: 34px; height: 34px; border-radius: 8px; color: {COLORS['ink']}; font-weight: 900;
+        border: 1px solid {COLORS['ink']};
+        display: flex; align-items: center; justify-content: center; font-size: .85rem;
+    }}
+    .muted {{ color: {COLORS['muted']}; font-size: .85rem; font-weight: 700; }}
+
+    /* Recommendation player */
+    .st-key-player {{
+        background: transparent;
+        border: 1px solid {COLORS['ink']}; border-radius: 22px;
+        padding: 1.1rem 1.2rem 1.3rem; box-sizing: border-box;
+    }}
+    .st-key-player_screen {{
+        background: {COLORS['wash']}; border: 1px solid {COLORS['ink']}; border-radius: 14px;
+        padding: .9rem 1rem; box-sizing: border-box;
+    }}
+
+    /* Buttons */
+    div[data-testid="stButton"] > button {{
+        background: {COLORS['wash']}; color: {COLORS['ink']}; border: 1px solid {COLORS['ink']}; font-weight: 800;
+    }}
+    div[data-testid="stButton"] > button:hover {{
+        background: {COLORS['pink']}; border-color: {COLORS['ink']}; color: {COLORS['ink']};
+    }}
+    div[data-testid="stButton"] > button[kind="primary"],
+    div[data-testid="stButton"] > button[data-testid="stBaseButton-primary"] {{
+        background: {COLORS['pink']}; color: {COLORS['ink']}; border: 1px solid {COLORS['ink']}; font-weight: 800;
+    }}
+
+    /* Pills wrap onto new lines so every option is visible */
+    div[data-testid="stButtonGroup"] {{
+        flex-wrap: wrap !important; overflow: visible !important;
+        height: auto !important; max-height: none !important;
+    }}
+    div[data-testid="stButtonGroup"] > div {{ flex-wrap: wrap !important; overflow: visible !important; }}
+    button[data-testid="stBaseButton-pills"], button[data-testid="stBaseButton-pillsActive"] {{ white-space: nowrap; }}
+
+    /* Pills, progress, inputs, expander, alerts: pink accent + thin outline */
+    button[data-testid="stBaseButton-pills"] {{
+        background: {COLORS['wash']}; border: 1px solid {COLORS['ink']}; color: {COLORS['ink']}; font-weight: 700;
+    }}
+    button[data-testid="stBaseButton-pills"]:hover {{
+        background: {COLORS['pink']}; border-color: {COLORS['ink']}; color: {COLORS['ink']};
+    }}
+    button[data-testid="stBaseButton-pillsActive"] {{
+        background: {COLORS['pink']}; border: 2px solid {COLORS['select']}; font-weight: 900;
+    }}
+    button[data-testid="stBaseButton-pillsActive"],
+    button[data-testid="stBaseButton-pillsActive"] * {{ color: {COLORS['select']} !important; }}
+    [data-testid="stProgress"] [role="progressbar"] > div > div {{ background-color: {COLORS['pink']} !important; }}
+    div[data-baseweb="textarea"], div[data-baseweb="input"] {{
+        border: 1px solid {COLORS['ink']} !important; border-radius: 10px; background: {COLORS['wash']} !important;
+    }}
+    div[data-baseweb="base-input"] {{ border: none !important; background: transparent !important; }}
+    div[data-baseweb="base-input"] textarea, div[data-baseweb="base-input"] input {{ background: transparent !important; }}
+    div[data-baseweb="textarea"]:focus-within, div[data-baseweb="input"]:focus-within {{
+        border-color: {COLORS['select']} !important; box-shadow: 0 0 0 1px {COLORS['select']};
+    }}
+    div[data-testid="stExpander"] details {{
+        border: 1px solid {COLORS['ink']}; border-radius: 10px; background: {COLORS['wash']};
+    }}
+    div[data-testid="stAlert"] {{
+        background-color: {COLORS['wash']}; border: 1px solid {COLORS['ink']}; border-radius: 10px;
+    }}
+    div[data-testid="stAlert"] > div {{ background-color: transparent !important; color: {COLORS['ink']}; }}
+
+    /* ---------- Tablets and small laptops ---------- */
+    @media (max-width: 900px) {{
+        .block-container {{ padding: 1rem .9rem 2rem !important; }}
+        .hero {{ padding: 1rem 1.1rem; }}
+        .hero p {{ font-size: .92rem; margin-bottom: .5rem; }}
+        div[data-baseweb="tab-panel"] {{ padding: .8rem .7rem .7rem !important; }}
+        button[data-baseweb="tab"] {{ padding: .4rem .7rem; }}
+        button[data-baseweb="tab"] p {{ font-size: .8rem; }}
+        [class*="st-key-panel_"] {{ padding: .8rem .8rem 1rem; }}
+        .st-key-player {{ padding: .8rem .8rem 1rem; }}
+        .st-key-player_screen {{ padding: .8rem; }}
+        .metric {{ padding: .4rem .6rem; }}
+        .metric .muted {{ font-size: .66rem; }}
+        .metric strong {{ font-size: 1rem; }}
+        .metric-sub {{ font-size: .64rem; }}
+        .kv span, .kv strong {{ font-size: .8rem; }}
+        .genre-row-top {{ font-size: .82rem; }}
+        .info-title {{ font-size: .98rem; }}
+        .info-line {{ font-size: .76rem; }}
+    }}
+
+    /* ---------- Phones ---------- */
+    @media (max-width: 640px) {{
+        .block-container {{ padding: .6rem .6rem 1.5rem !important; }}
+        .section-divider {{ margin: .9rem 0; }}
+        .small-caps {{ font-size: .68rem; }}
+        button[data-baseweb="tab"] {{ padding: .35rem .55rem; }}
+        button[data-baseweb="tab"] p {{ font-size: .72rem; }}
+        [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {{ font-size: .8rem !important; }}
+
+        /* Keep the small rows (artist list, track list, repeat list, selection list) on one line
+           instead of stacking every cell; the two big page columns still stack. */
+        [data-testid="stColumn"] [data-testid="stHorizontalBlock"] {{
+            flex-wrap: nowrap !important; gap: .4rem !important; align-items: center;
+        }}
+        [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {{
+            min-width: 0 !important; width: auto !important; flex: 1 1 0 !important;
+        }}
+        [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(1):nth-last-child(4) {{ flex-grow: 8 !important; }}
+        [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2):nth-last-child(3) {{ flex-grow: 58 !important; }}
+        [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(3):nth-last-child(2) {{ flex-grow: 20 !important; }}
+        [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(4):nth-last-child(1) {{ flex-grow: 14 !important; }}
+        [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(1):nth-last-child(3) {{ flex-grow: 12 !important; }}
+        [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2):nth-last-child(2) {{ flex-grow: 76 !important; }}
+        [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(3):nth-last-child(1) {{ flex-grow: 12 !important; }}
+        [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(1):nth-last-child(2) {{ flex-grow: 80 !important; }}
+        [data-testid="stColumn"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:nth-child(2):nth-last-child(1) {{ flex-grow: 20 !important; }}
+        [data-testid="stColumn"] [data-testid="stColumn"] button {{ padding: .2rem .45rem; min-height: 0; }}
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
+
+def _esc(value) -> str:
+    """HTML-escape text (and `$`, which markdown can mistake for math)."""
+    return html.escape(str(value)).replace("$", "&#36;")
+
+
+def metric(label: str, value: str, sub: str | None = None) -> str:
+    """Returns one tile's HTML; tiles are rendered together inside .metric-grid."""
+    sub_html = f'<span class="metric-sub">{sub}</span>' if sub else ""
+    return f'<div class="metric"><span class="muted">{label}</span><strong>{value}</strong>{sub_html}</div>'
+
+
+def info_card(title: str, lines: list) -> None:
+    """Soft pink detail card: bold black title with info lines underneath."""
+    body = "".join(f'<div class="info-line">{_esc(line)}</div>' for line in lines if line)
+    st.markdown(
+        f'<div class="info-wrap"><div class="info-card">'
+        f'<div class="info-title">{_esc(title)}</div>{body}'
+        f'</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def pink_divider() -> None:
+    st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
+
+
+def style_axes(fig, x_title: str, y_title: str) -> None:
+    """Bold, high-contrast axes with clear titles."""
+    ink = COLORS["ink"]
+    axis = dict(
+        showline=True, linecolor=ink, linewidth=2,
+        gridcolor="#BCD0E8", zeroline=False,
+        ticks="outside", tickcolor=ink,
+        tickfont=dict(size=13, color=ink),
+        automargin=True,
+    )
+    fig.update_xaxes(title_text=f"<b>{x_title}</b>", title_font=dict(size=14, color=ink), **axis)
+    fig.update_yaxes(title_text=f"<b>{y_title}</b>", title_font=dict(size=14, color=ink), **axis)
+    try:  # bold tick labels (needs a recent plotly); falls back gracefully
+        fig.update_xaxes(tickfont=dict(weight="bold"))
+        fig.update_yaxes(tickfont=dict(weight="bold"))
+    except ValueError:
+        pass
+    fig.update_layout(font=dict(color=ink), margin=dict(l=10, r=10, t=10, b=10))
+
+
+# ----------------------------------------------------------------------------
+# Hero
+# ----------------------------------------------------------------------------
+def hero(data: dict) -> None:
+    st.markdown(f"""
+    <div class="hero">
+      <div class="eyebrow">An experiment in listening</div>
+      <h1>Hi, I'm {LISTENER_NAME}.<br>This is my <span class="highlight">listening data.</span></h1>
+      <div class="small-caps">October 2025 – March 2026</div>
+      <p>
+      In October 2025, I switched my music streaming app for 5 months to see which service I preferred. Majority of the tracks were imported from my previous library. When the experiment ended, I exported my data to analyze my music listening behavior and figure out which tracks I listened to most. 
+      </p>
+      
+      <p>This is a capsule of my music listening data during that specific period, not a full picture of my listening behavior. A first listen or "discovery" here doesn't mean I discovered the song then.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ----------------------------------------------------------------------------
+# Overview (left column): metrics, top 5 artists, highlights
+# ----------------------------------------------------------------------------
+def section_overview(data: dict) -> None:
+    plays, tracks, days = data["plays"], data["tracks"], data["days"]
+    artists, genres = data["artists"], data["genres"]
+
+    n_days = len(days)
+    total_minutes = plays["minutes"].sum() if "minutes" in plays.columns else 0
+    avg_minutes = total_minutes / n_days if n_days else 0
+    avg_events = len(plays) / n_days if n_days else 0
+    n_artists = artists.loc[artists["artist"].ne("Unknown Artist"), "artist"].nunique()
+    n_genres = genres["genre"].nunique() if "genre" in genres.columns else len(genres)
+
+    st.markdown('<div class="eyebrow">OVERVIEW</div>', unsafe_allow_html=True)
+    st.subheader("At a Glance")
+
+    items = [
+        ("Total Listening Time", f"{total_minutes / 60:,.1f} Hours", f"{total_minutes:,.0f} Minutes"),
+        ("Avg. per Listening Day", f"{avg_minutes:,.0f} Minutes", None),
+        ("Listening Events", f"{len(plays):,}", None),
+        ("Tracks in the History", f"{len(tracks):,}", None),
+        ("Listening Days", f"{n_days:,}", None),
+        ("Avg. Events per Day", f"{avg_events:,.0f}", None),
+        ("Artists", f"{n_artists:,}", None),
+        ("Unique Genres", f"{n_genres:,}", None),
     ]
+    tiles = "".join(metric(label, value, sub) for label, value, sub in items)
+    st.markdown(f'<div class="metric-grid">{tiles}</div>', unsafe_allow_html=True)
 
-    for path in paths:
-        if path.exists():
-            data = base64.b64encode(path.read_bytes()).decode("utf-8")
-            kind = "opentype" if path.suffix.lower() == ".otf" else "truetype"
-            return f"""
-            @font-face {{
-                font-family: "Poxel Local";
-                src: url(data:font/{kind};base64,{data}) format("{kind}");
-                font-weight: 400;
-                font-style: normal;
-                font-display: swap;
-            }}
-            """
+    # Top 5 artists
+    st.markdown('<div class="small-caps">Top 5 Artists</div>', unsafe_allow_html=True)
+    top_artists = (artists[artists["artist"].ne("Unknown Artist")]
+                   .sort_values("plays", ascending=False).head(5))
+    max_plays = top_artists["plays"].max() if len(top_artists) else 1
+    rows_html = ""
+    for i, row in enumerate(top_artists.itertuples(), start=1):
+        width = (row.plays / max_plays * 100) if max_plays else 0
+        color = PALETTE[(i - 1) % len(PALETTE)]
+        rows_html += (
+            f'<div class="genre-row"><div class="genre-row-top"><span>{i:02d} {row.artist}</span>'
+            f'<span>{row.plays:,}</span></div>'
+            f'<div class="bar-bg"><div class="bar-fill" style="width:{width:.1f}%;background:{color};"></div></div></div>'
+        )
+    st.markdown(rows_html, unsafe_allow_html=True)
 
-    return ""
+    # Highlights
+    kv_rows = []
+    if n_days and "minutes" in days.columns:
+        longest = days.loc[days["minutes"].idxmax()]
+        kv_rows.append(("Longest Day", f"{longest['date']:%b %d, %Y} · {longest['minutes']:,.0f} Minutes"))
+    heat = build_heatmap_table(data)
+    if heat is not None and not heat.empty and heat["minutes"].max() > 0:
+        peak = heat.loc[heat["minutes"].idxmax()]
+        kv_rows.append(("Peak Listening Time",
+                        f"{peak['weekday']}, {BUCKET_LABELS.get(peak['bucket'], peak['bucket'])} {TZ_LABEL}"))
+    if len(tracks):
+        top_track = tracks.sort_values("plays", ascending=False).iloc[0]
+        kv_rows.append(("Most-Played Track", f"{top_track['track']} — {top_track['artist']}"))
+    if kv_rows:
+        st.markdown('<div class="small-caps">Highlights</div>', unsafe_allow_html=True)
+        st.markdown("".join(f'<div class="kv"><span>{k}</span><strong>{v}</strong></div>' for k, v in kv_rows),
+                    unsafe_allow_html=True)
 
 
-def page_style() -> None:
-    st.markdown(
-        f"""
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Pixelify+Sans:wght@400;600;700&display=swap');
+# ----------------------------------------------------------------------------
+# Genres (left column)
+# ----------------------------------------------------------------------------
+def section_genres(data: dict) -> None:
+    genres, plays = data["genres"], data["plays"]
 
-        {font_css()}
+    st.markdown('<div class="eyebrow">GENRES</div>', unsafe_allow_html=True)
+    st.subheader("Leading Genres")
+    st.caption("Ranked by share of all listening events.")
 
-        :root {{
-            --game: "Poxel Local", "Pixelify Sans", monospace;
-            --body: "Nunito", "Quicksand", "DM Sans", "Arial Rounded MT Bold", sans-serif;
-            --page: #EEF9FF;
-            --text: #101010;
-            --bodyText: #222222;
-            --soft: #4A4A4A;
-            --border: #A8C7D8;
-            --cyan: #54C7EC;
-            --mint: #8BE8C7;
-            --coral: #F9786B;
-            --yellow: #F5D76E;
-            --purple: #B9A2F7;
-            --gray: #C8D4DA;
-        }}
+    total_events = len(plays)
+    g_sorted = genres.sort_values("plays", ascending=False).reset_index(drop=True)
+    if total_events:
+        # drop genres whose share would display as 0.0%
+        g_sorted = g_sorted[g_sorted["plays"].map(lambda p: f"{p / total_events:.1%}" != "0.0%")].reset_index(drop=True)
 
-        html, body, [data-testid="stAppViewContainer"] {{
-            background:
-                linear-gradient(rgba(168,199,216,0.04) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(168,199,216,0.04) 1px, transparent 1px),
-                radial-gradient(circle at 10% 5%, rgba(113,207,242,0.14), transparent 30%),
-                radial-gradient(circle at 88% 12%, rgba(247,167,200,0.10), transparent 28%),
-                radial-gradient(circle at 52% 96%, rgba(139,232,199,0.10), transparent 32%),
-                #EEF9FF !important;
-            background-size: 32px 32px, 32px 32px, auto, auto, auto, auto !important;
-            color: var(--text) !important;
-            font-family: var(--body) !important;
-        }}
+    show_all = st.session_state.get("show_all_genres", False)
+    shown = g_sorted if show_all else g_sorted.head(6)
 
-        [data-testid="stHeader"] {{
-            background: rgba(238, 249, 255, 0.86) !important;
-        }}
+    rows_html = ""
+    for i, row in enumerate(shown.itertuples(), start=1):
+        share = row.plays / total_events if total_events else 0
+        color = PALETTE[(i - 1) % len(PALETTE)]
+        rows_html += (
+            f'<div class="genre-row"><div class="genre-row-top"><span>{i:02d} {row.genre}</span><span>{share:.1%}</span></div>'
+            f'<div class="bar-bg"><div class="bar-fill" style="width:{share*100:.1f}%;background:{color};"></div></div></div>'
+        )
+    box = st.container(height=420) if show_all else st.container()
+    with box:
+        st.markdown(rows_html, unsafe_allow_html=True)
 
-        .block-container {{
-            max-width: 1360px;
-            padding-top: 1.15rem;
-            padding-bottom: 3.7rem;
-        }}
+    if not show_all and len(g_sorted) > 6:
+        rest = g_sorted.iloc[6:]
+        rest_events = int(rest["plays"].sum())
+        rest_share = rest_events / total_events if total_events else 0
+        named = rest.head(4)
+        bits = ", ".join(f"{r.genre} ({r.plays/total_events:.1%})" for r in named.itertuples())
+        st.caption(f"The other {len(rest)} named genres account for {rest_events:,} listening events "
+                   f"({rest_share:.1%}), led by {bits}.")
 
-        h1, h2, h3, h4 {{
-            color: var(--text) !important;
-        }}
+    if len(g_sorted) > 6 or show_all:
+        if st.button("Show fewer" if show_all else "All genres", key="toggle_genres"):
+            st.session_state["show_all_genres"] = not show_all
+            st.rerun()
 
-        h2 {{
-            font-family: var(--game) !important;
-            font-size: 1.85rem !important;
-            letter-spacing: 0.01em !important;
-            margin-top: 0.7rem !important;
-            margin-bottom: 0.2rem !important;
-        }}
 
-        h3, h4 {{
-            font-family: var(--body) !important;
-            font-weight: 800 !important;
-            letter-spacing: -0.01em !important;
-        }}
+# ----------------------------------------------------------------------------
+# Artists (right column)
+# ----------------------------------------------------------------------------
+def section_artists(data: dict) -> None:
+    artists, plays, tracks = data["artists"], data["plays"], data["tracks"]
 
-        p, div, span, label {{
-            font-family: var(--body);
-            color: var(--bodyText);
-        }}
+    st.markdown('<div class="eyebrow">ARTISTS</div>', unsafe_allow_html=True)
+    st.subheader("Most-Played Artists")
 
-        [data-testid="stSidebar"] {{
-            background: rgba(226, 245, 253, 0.88) !important;
-            border-right: 1px solid rgba(168,199,216,0.72);
-        }}
+    a_sorted = (artists[artists["artist"].ne("Unknown Artist")]
+                .sort_values("plays", ascending=False).head(10).reset_index(drop=True))
+    max_plays = a_sorted["plays"].max() if len(a_sorted) else 1
 
-        [data-testid="stSidebar"] * {{
-            color: var(--text) !important;
-        }}
+    for i, row in enumerate(a_sorted.itertuples(), start=1):
+        size = 8 + 14 * (row.plays / max_plays if max_plays else 0)
+        c1, c2, c3, c4 = st.columns([0.08, 0.58, 0.2, 0.14])
+        with c1:
+            st.write(f"**{i:02d}**")
+        with c2:
+            if st.button(row.artist, key=f"artist_{i}", use_container_width=True):
+                st.session_state["selected_artist"] = row.artist
+        with c3:
+            st.write(f"{row.plays:,}")
+        with c4:
+            st.markdown(f'<div class="bubble" style="width:{size}px;height:{size}px;"></div>', unsafe_allow_html=True)
 
-        .top-shell {{
-            margin-bottom: 0.85rem;
-        }}
+    selected_artist = st.session_state.get("selected_artist")
+    if selected_artist:
+        detail = _artist_detail(selected_artist, plays, tracks)
+        if detail:
+            info_card(detail["name"], [detail["stats"], f"Most played: {detail['top']}"])
 
-        .pixel-logo {{
-            display: inline-block;
-            font-family: var(--game);
-            font-size: 0.98rem;
-            line-height: 1;
-            letter-spacing: 0.035em;
-            color: #101010;
-            background: rgba(255,255,255,0.22);
-            border: 1px solid rgba(16,16,16,0.22);
-            border-radius: 13px;
-            padding: 0.38rem 0.58rem;
-            box-shadow: 2px 2px 0 rgba(84,199,236,0.18);
-        }}
 
-        .hero {{
-            padding: 2.05rem 0 1.15rem 0;
-        }}
+def _artist_detail(artist: str, plays: pd.DataFrame, tracks: pd.DataFrame) -> dict | None:
+    if {"artist", "track"}.issubset(plays.columns):
+        sub = plays[plays["artist"].eq(artist)]
+        if sub.empty:
+            return None
+        events = len(sub)
+        n_tracks = sub["track"].nunique()
+        minutes = sub["minutes"].sum() if "minutes" in sub.columns else None
+        most_played = sub["track"].value_counts().idxmax()
+        minutes_bit = f" · {minutes:,.0f} minutes" if minutes is not None else ""
+        return {"name": artist,
+                "stats": f"{events:,} events · {n_tracks} tracks{minutes_bit}",
+                "top": most_played}
 
-        .hero-title {{
-            font-family: var(--game);
-            font-size: clamp(2.05rem, 4.9vw, 4.35rem);
-            line-height: 0.98;
-            color: #101010;
-            letter-spacing: 0.01em;
-            margin: 0;
-            max-width: 960px;
-            text-shadow: 2px 2px 0 rgba(255,255,255,0.80), 4px 4px 0 rgba(84,199,236,0.18);
-        }}
+    sub_t = tracks[tracks["artist"].eq(artist)]
+    if sub_t.empty:
+        return None
+    events = int(sub_t["plays"].sum())
+    n_tracks = len(sub_t)
+    most_played = sub_t.sort_values("plays", ascending=False).iloc[0]["track"]
+    return {"name": artist, "stats": f"{events:,} events · {n_tracks} tracks", "top": most_played}
 
-        .hero-subtitle {{
-            font-family: var(--body);
-            font-size: 1.14rem;
-            color: #4A4A4A;
-            margin: 0.8rem 0 0 0.1rem;
-            font-weight: 700;
-        }}
 
-        .purpose {{
-            max-width: 880px;
-            color: #4A4A4A;
-            font-size: 1.02rem;
-            line-height: 1.45;
-            margin-top: 0.15rem;
-            margin-bottom: 0.9rem;
-        }}
+# ----------------------------------------------------------------------------
+# Breakdown: repeat listening
+# ----------------------------------------------------------------------------
+def section_repeat(data: dict) -> None:
+    tracks, plays = data["tracks"], data["plays"]
+    st.markdown('<div class="eyebrow">REPEAT LISTENING</div>', unsafe_allow_html=True)
+    st.subheader("How Much Did I Replay?")
 
-        .summary {{
-            max-width: 900px;
-            border-left: 4px solid #54C7EC;
-            padding: 0.72rem 0 0.72rem 0.9rem;
-            margin: 0.75rem 0 1.1rem 0;
-        }}
+    label_to_n = {"Top 5 Tracks": 5, "Top 10 Tracks": 10, "Top 25 Tracks": 25}
+    choice = st.pills("Compare", list(label_to_n.keys()), selection_mode="single",
+                       default="Top 5 Tracks", key="repeat_choice", label_visibility="collapsed")
+    n = label_to_n.get(choice, 5)
 
-        .summary-title {{
-            font-weight: 800;
-            font-size: 0.92rem;
-            color: #101010;
-            margin-bottom: 0.25rem;
-        }}
+    top = tracks.sort_values("plays", ascending=False).head(n)
+    total = len(plays)
+    share = top["plays"].sum() / total if total else 0
 
-        .summary-body {{
-            color: #4A4A4A;
-            margin: 0;
-            font-size: 0.98rem;
-            line-height: 1.45;
-        }}
+    st.progress(float(share))
+    st.caption(f"My top {n} tracks account for {share:.1%} of listening events ({int(top['plays'].sum()):,} of {total:,}).")
 
-        .identity-card {{
-            border: 1px solid rgba(168,199,216,0.78);
-            border-radius: 22px;
-            padding: 1.1rem 1.2rem;
-            background: rgba(235,247,255,0.58);
-            margin-bottom: 1rem;
-        }}
+    list_box = st.container(height=260) if n > 5 else st.container()
+    with list_box:
+        for i, row in enumerate(top.itertuples(), start=1):
+            c1, c2 = st.columns([0.78, 0.22])
+            with c1:
+                st.markdown(f"**{i}. {row.track}** — {row.artist}")
+            with c2:
+                st.markdown(f"<div style='text-align:right'>{row.plays:,} plays</div>", unsafe_allow_html=True)
 
-        .identity-title {{
-            font-weight: 800;
-            color: #101010;
-            font-size: 1.12rem;
-            margin-bottom: 0.3rem;
-        }}
+    st.caption("Counts include all recorded listening events, including short plays.")
 
-        .identity-text {{
-            font-size: 1.02rem;
-            color: #222222;
-            line-height: 1.48;
-            max-width: 950px;
-            margin: 0;
-        }}
 
-        .section-text {{
-            max-width: 900px;
-            color: #4A4A4A;
-            font-size: 0.98rem;
-            line-height: 1.45;
-            margin: 0.1rem 0 0.75rem 0;
-        }}
+# ----------------------------------------------------------------------------
+# Breakdown: daily listening
+# ----------------------------------------------------------------------------
+def section_daily(data: dict) -> None:
+    days = data["days"]
+    st.markdown('<div class="eyebrow">DAILY LISTENING</div>', unsafe_allow_html=True)
+    st.subheader("Minutes Listened per Day")
+    st.caption("Click any dot to see how many tracks I played that day and which artists I played most.")
 
-        .peak-card {{
-            border: 1px solid rgba(168,199,216,0.78);
-            border-radius: 20px;
-            padding: 0.95rem 1rem;
-            background: rgba(235,247,255,0.55);
-            margin: 0.65rem 0 1rem 0;
-        }}
-
-        .peak-card p {{
-            margin: 0.45rem 0 0 0;
-            color: #222222;
-            line-height: 1.45;
-        }}
-
-        .chip {{
-            display: inline-block;
-            font-size: 0.78rem;
-            font-weight: 800;
-            padding: 0.18rem 0.52rem;
-            margin: 0.1rem 0.12rem 0.1rem 0;
-            border-radius: 999px;
-            border: 1px solid rgba(16,16,16,0.18);
-            background: rgba(255,255,255,0.26);
-            color: #101010;
-        }}
-
-        .caption {{
-            max-width: 900px;
-            font-size: 0.94rem;
-            color: #4A4A4A;
-            margin: -0.25rem 0 1rem 0;
-            line-height: 1.42;
-        }}
-
-        .map-row {{
-            display: flex;
-            align-items: center;
-            gap: 0.55rem;
-            padding: 0.26rem 0;
-            color: #222222;
-            font-size: 0.92rem;
-        }}
-
-        .key-dot {{
-            width: 0.68rem;
-            height: 0.68rem;
-            border-radius: 999px;
-            border: 1px solid #101010;
-            display: inline-block;
-            flex: 0 0 auto;
-        }}
-
-        .ledger {{
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: 0.83rem;
-            background: rgba(235,247,255,0.60);
-            border: 1px solid rgba(168,199,216,0.76);
-            border-radius: 18px;
-            overflow: hidden;
-        }}
-
-        .ledger th {{
-            position: sticky;
-            top: 0;
-            font-size: 0.78rem;
-            font-weight: 800;
-            text-align: left;
-            padding: 0.66rem;
-            border-bottom: 1px solid rgba(168,199,216,0.82);
-            color: #101010;
-            background: rgba(221,242,251,0.94);
-            z-index: 2;
-        }}
-
-        .ledger td {{
-            padding: 0.60rem 0.66rem;
-            border-bottom: 1px solid rgba(168,199,216,0.38);
-            color: #222222;
-            vertical-align: top;
-            max-width: 300px;
-            overflow-wrap: anywhere;
-            line-height: 1.35;
-        }}
-
-        .ledger tr:hover {{
-            background: rgba(113,207,242,0.12);
-        }}
-
-        .pill {{
-            display: inline-block;
-            border-radius: 999px;
-            padding: 0.16rem 0.46rem;
-            font-size: 0.72rem;
-            font-weight: 800;
-            border: 1px solid rgba(16,16,16,0.18);
-            background: rgba(255,255,255,0.30);
-            color: #101010;
-            white-space: nowrap;
-        }}
-
-        .stTabs [data-baseweb="tab-list"] {{
-            gap: 0.28rem;
-            background: transparent;
-            border-bottom: 1px solid rgba(168,199,216,0.72);
-            padding-bottom: 0.35rem;
-            margin-bottom: 1.25rem;
-        }}
-
-        .stTabs [data-baseweb="tab"] {{
-            height: 2.2rem;
-            border-radius: 999px;
-            color: #101010 !important;
-            background: rgba(255,255,255,0.12);
-            border: 1px solid transparent;
-            font-family: var(--body) !important;
-            font-weight: 800;
-            font-size: 0.92rem;
-            padding-left: 0.9rem;
-            padding-right: 0.9rem;
-        }}
-
-        .stTabs [data-baseweb="tab"]:hover {{
-            background: rgba(255,255,255,0.24);
-            border-color: rgba(168,199,216,0.70);
-        }}
-
-        .stTabs [aria-selected="true"] {{
-            background: rgba(84,199,236,0.12);
-            border: 1px solid rgba(84,199,236,0.95);
-            box-shadow: inset 0 -3px 0 #54C7EC;
-        }}
-
-        div[data-testid="stDataFrame"] {{
-            border: 1px solid rgba(168,199,216,0.76);
-            border-radius: 18px;
-            overflow: hidden;
-            background: rgba(235,247,255,0.58);
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
+    plot_days = days.copy()
+    plot_days["date"] = pd.to_datetime(plot_days["date"])
+    fig = px.scatter(
+        plot_days, x="date", y="minutes", size="minutes", color="minutes",
+        hover_data=["plays", "tracks", "top_artist", "top_genre"],
+        color_continuous_scale=[[0, COLORS["cyan"]], [.7, COLORS["yellow"]], [1, COLORS["coral"]]],
+        size_max=14,
     )
+    fig.update_layout(height=260, plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", coloraxis_showscale=False)
+    style_axes(fig, "Date", "Minutes Listened")
+    fig.update_xaxes(type="date", tickformat="%b %d", hoverformat="%b %d, %Y")
+    fig.update_yaxes(rangemode="tozero")
+    event = st.plotly_chart(fig, on_select="rerun", selection_mode="points", key="daily_pulse")
 
-
-def hero() -> None:
-    st.markdown(
-        """
-        <div class="top-shell">
-            <span class="pixel-logo">Sumi's Music Universe</span>
-            <div class="hero">
-                <div class="hero-title">Hi, I’m Sumi, and this is my music universe.</div>
-                <div class="hero-subtitle">Explore it with me.</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def map_key() -> None:
-    with st.expander("Map Key", expanded=False):
-        st.markdown(
-            """
-            <div class="map-row"><span class="key-dot" style="background:#71CFF2;"></span><span>Circle size: more listening.</span></div>
-            <div class="map-row"><span class="key-dot" style="background:#FFFFFF;"></span><span>Ring thickness: stronger signal.</span></div>
-            <div class="map-row"><span class="key-dot" style="background:#F5D76E;"></span><span>Glow: important moment.</span></div>
-            <div class="map-row"><span class="key-dot" style="background:#54C7EC;"></span><span>Cyan: listening or repeat history.</span></div>
-            <div class="map-row"><span class="key-dot" style="background:#8BE8C7;"></span><span>Mint: discovery or source routes.</span></div>
-            <div class="map-row"><span class="key-dot" style="background:#F9786B;"></span><span>Coral: skips or friction.</span></div>
-            <div class="map-row"><span class="key-dot" style="background:#F5D76E;"></span><span>Yellow: peak activity.</span></div>
-            <div class="map-row"><span class="key-dot" style="background:#B9A2F7;"></span><span>Purple: recommendations.</span></div>
-            <div class="map-row"><span class="key-dot" style="background:#C8D4DA;"></span><span>Gray: unknown or low signal.</span></div>
-            """,
-            unsafe_allow_html=True,
+    if event and event.selection and event.selection.points:
+        point = event.selection.points[0]
+        day = plot_days.iloc[int(point["point_index"])]
+        info_card(
+            f"{day['date']:%b %d, %Y}",
+            [f"{day['minutes']:.1f} minutes · {day['tracks']} tracks · {day['plays']} events",
+             f"Top artist: {day['top_artist']}",
+             f"Top genre: {day['top_genre']}"],
         )
 
 
-def page_head(title: str, text: str) -> None:
-    st.subheader(title)
-    st.markdown(f"<div class='purpose'>{html.escape(text)}</div>", unsafe_allow_html=True)
+# ----------------------------------------------------------------------------
+# Breakdown: listening times heatmap
+# ----------------------------------------------------------------------------
+def build_heatmap_table(data: dict) -> pd.DataFrame | None:
+    plays = data.get("plays")
+    ts_col = None
+    if plays is not None and not plays.empty:
+        ts_col = next((c for c in ["played_at", "timestamp", "ts", "datetime", "played_datetime", "date_time", "played_at_utc"]
+                       if c in plays.columns), None)
+
+    # Preferred: rebuild from the play timestamps so they can be converted to EST
+    if ts_col:
+        df = plays.copy()
+        df["_ts"] = pd.to_datetime(df[ts_col], utc=True, errors="coerce")
+        df = df.dropna(subset=["_ts"])
+        df["_ts"] = df["_ts"].dt.tz_convert(TIMEZONE)
+        df["weekday"] = df["_ts"].dt.dayofweek.map(lambda d: WEEKDAYS[d])
+        df["bucket"] = (df["_ts"].dt.hour // 4).map(lambda i: BUCKETS[i])
+
+        agg_kwargs = {"minutes": ("minutes", "sum"), "plays": ("minutes", "count")}
+        if "track" in df.columns:
+            agg_kwargs["tracks"] = ("track", "nunique")
+        agg = df.groupby(["weekday", "bucket"]).agg(**agg_kwargs).reset_index()
+
+        if "artist" in df.columns:
+            top_artists = (df.groupby(["weekday", "bucket"])["artist"]
+                            .apply(lambda s: ", ".join(s.value_counts().head(3).index))
+                            .reset_index(name="top_artists"))
+            agg = agg.merge(top_artists, on=["weekday", "bucket"], how="left")
+
+        full_index = pd.MultiIndex.from_product([WEEKDAYS, BUCKETS], names=["weekday", "bucket"])
+        agg = agg.set_index(["weekday", "bucket"]).reindex(full_index, fill_value=0).reset_index()
+        return agg
+
+    # Fallback: a precomputed hours table (used as-is, no timezone conversion possible)
+    hours = data.get("hours")
+    if hours is not None and not hours.empty:
+        cols = {c.lower(): c for c in hours.columns}
+        weekday_col = next((cols[c] for c in ["weekday", "day_of_week", "dow", "day"] if c in cols), None)
+        bucket_col = next((cols[c] for c in ["bucket", "hour_bucket", "time_bucket", "period", "block"] if c in cols), None)
+        minutes_col = next((cols[c] for c in ["minutes", "total_minutes"] if c in cols), None)
+        if weekday_col and bucket_col and minutes_col:
+            df = hours.rename(columns={weekday_col: "weekday", bucket_col: "bucket", minutes_col: "minutes"}).copy()
+            for candidates, target in [
+                (["plays", "events", "count"], "plays"),
+                (["tracks", "n_tracks"], "tracks"),
+                (["top_artist", "top_artists", "most_played_artists"], "top_artists"),
+            ]:
+                match = next((cols[c] for c in candidates if c in cols), None)
+                if match:
+                    df[target] = hours[match]
+            return df
+
+    return None
 
 
-def summary(text: str) -> None:
-    st.markdown(
-        f"""
-        <div class="summary">
-            <div class="summary-title">Summary</div>
-            <p class="summary-body">{html.escape(text)}</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
+def section_heatmap(data: dict) -> None:
+    st.markdown('<div class="eyebrow">LISTENING TIMES</div>', unsafe_allow_html=True)
+    st.subheader("When I Listen")
+    st.caption("Click a circle to inspect listening by weekday and time. Larger circles mean more minutes.")
+
+    heat = build_heatmap_table(data)
+    if heat is None:
+        st.info("This section needs either an hours.parquet table with weekday/bucket/minutes columns, "
+                 "or a timestamp column on plays.parquet. Tell me the real column names and I'll wire it up.")
+        return
+
+    fig = px.scatter(
+        heat, x="bucket", y="weekday", size="minutes", color="minutes",
+        category_orders={"bucket": BUCKETS, "weekday": list(reversed(WEEKDAYS))},
+        color_continuous_scale=[[0, COLORS["cyan"]], [1, COLORS["coral"]]],
+        size_max=22,
+        hover_data=[c for c in ["plays", "tracks", "top_artists"] if c in heat.columns],
     )
+    fig.update_traces(marker=dict(line=dict(color=COLORS["ink"], width=1)))
+    fig.update_layout(height=280, plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                       coloraxis_showscale=False)
+    style_axes(fig, f"Time of Day ({TZ_LABEL})", "Weekday")
+    # Time buckets like "00-04" are text, not dates: force category axes so plotly doesn't read them as years
+    fig.update_xaxes(type="category", categoryorder="array", categoryarray=BUCKETS)
+    fig.update_yaxes(type="category")
+    if set(heat["bucket"]).issubset(set(BUCKETS)):
+        fig.update_xaxes(tickmode="array", tickvals=BUCKETS, ticktext=[BUCKET_LABELS[b] for b in BUCKETS])
+    event = st.plotly_chart(fig, on_select="rerun", selection_mode="points", key="heatmap")
+
+    if event and event.selection and event.selection.points:
+        point = event.selection.points[0]
+        row = heat.iloc[int(point["point_index"])]
+        bits = [f"{row['minutes']:.1f} minutes"]
+        if "plays" in row:
+            bits.append(f"{int(row['plays'])} events")
+        if "tracks" in row:
+            bits.append(f"{int(row['tracks'])} tracks")
+        lines = [" · ".join(bits)]
+        if "top_artists" in row and row["top_artists"]:
+            lines.append(f"Most-played artists: {row['top_artists']}")
+        info_card(f"{row['weekday']}, {BUCKET_LABELS.get(row['bucket'], row['bucket'])} {TZ_LABEL}", lines)
 
 
-def paragraph(text: str) -> None:
-    st.markdown(f"<div class='section-text'>{html.escape(text)}</div>", unsafe_allow_html=True)
+# ----------------------------------------------------------------------------
+# Recommendation engine
+# ----------------------------------------------------------------------------
+_STOPWORDS = {
+    "something", "songs", "song", "music", "about", "with", "that", "this", "like", "some",
+    "want", "need", "feel", "feeling", "make", "play", "listen", "hear", "good", "just",
+    "really", "little", "tracks", "track", "artist", "artists", "genre", "genres", "from",
+    "your", "have", "what", "when", "then", "them", "they", "into", "than", "very", "kind",
+    "type", "sort", "mood", "vibe", "vibes", "stuff", "things",
+}
 
 
-def caption(text: str) -> None:
-    st.markdown(f"<div class='caption'>{html.escape(text)}</div>", unsafe_allow_html=True)
+def _norm_text(s: str) -> str:
+    """Lowercase, drop '&', and turn every other symbol into a single space."""
+    s = (s or "").lower().replace("&", "")
+    return re.sub(r"[^a-z0-9]+", " ", s).strip()
 
 
-def need_table(name: str) -> Path:
-    path = clean_path / f"{name}.parquet"
+def _genre_parts(genre: str) -> list:
+    """'Hip-Hop/Rap' -> ['hiphop', 'rap']"""
+    parts = (_norm_text(p).replace(" ", "") for p in str(genre).split("/"))
+    return [p for p in parts if p]
 
-    if not path.exists():
-        raise FileNotFoundError("Processed data is missing. Stop Streamlit and run python3 scripts/make_data.py first.")
 
-    return path
+def _match_genres(target: str, available) -> list:
+    """Find the genres in the data that correspond to a lexicon genre name."""
+    t_parts = _genre_parts(target)
+    out = []
+    for g in available:
+        g_parts = _genre_parts(g)
+        if any(tp == gp or (len(tp) >= 4 and tp in gp) or (len(gp) >= 4 and gp in tp)
+               for tp in t_parts for gp in g_parts):
+            out.append(g)
+    return out
 
-@st.cache_data(show_spinner=False)
-def load_table(name: str) -> pd.DataFrame:
-    return pd.read_parquet(need_table(name))
 
-@st.cache_data(show_spinner=False)
-def load_data() -> dict[str, pd.DataFrame]:
+def load_mood_lexicon() -> dict:
     return {
-        "plays": load_table("plays"),
-        "tracks": load_table("tracks"),
-        "artists": load_table("artists"),
-        "albums": load_table("albums"),
-        "genres": load_table("genres"),
-        "days": load_table("days"),
-        "hours": load_table("hours"),
-        "sources": load_table("sources"),
-        "sessions": load_table("sessions"),
-        "features": load_table("features"),
-        "life": load_table("life"),
-        "profile": load_table("profile"),
-        "recommend_candidates": load_table("recommend_candidates"),
-        "recommendations": load_table("recommendations"),
-        "recommend_profile": load_table("recommend_profile"),
+        "rainy_moody": {
+            "keywords": ["rain", "rainy", "moody", "sad", "dramatic", "melancholy", "heartbreak",
+                         "cry", "crying", "lonely", "gloomy", "blue", "emotional", "somber",
+                         "breakup", "heartbroken", "broken", "tears", "stormy", "drizzle", "autumn"],
+            "genres": ["R&B/Soul", "Alternative", "Jazz"],
+        },
+        "energetic": {
+            "keywords": ["workout", "energy", "hype", "party", "pump", "pumped", "gym", "run", "running",
+                         "upbeat", "dance", "fast", "intense", "adrenaline", "hyped", "cardio",
+                         "club", "festival", "banger", "cleaning"],
+            "genres": ["K-Pop", "Pop", "Dance", "Hip-Hop/Rap", "Hard Rock"],
+        },
+        "calm": {
+            "keywords": ["calm", "quiet", "soft", "relax", "relaxing", "chill", "sleep", "sleepy", "study",
+                         "focus", "mellow", "peaceful", "gentle", "unwind", "lofi", "lo-fi",
+                         "meditate", "meditation", "ambient", "slow", "bedtime", "reading"],
+            "genres": ["Relaxation", "Jazz", "Soundtrack"],
+        },
+        "happy": {
+            "keywords": ["happy", "fun", "feel good", "summer", "sunny", "bright", "cheerful",
+                         "joy", "joyful", "positive", "good vibes", "smile", "sunshine", "playful", "cute", "bubbly"],
+            "genres": ["Pop", "K-Pop", "Dance"],
+        },
+        "aggressive": {
+            "keywords": ["angry", "aggressive", "rage", "hard", "heavy", "dark", "moshpit",
+                         "mad", "furious", "loud", "punk", "metal", "scream"],
+            "genres": ["Hard Rock", "Rock", "Hip-Hop/Rap"],
+        },
+        "romantic": {
+            "keywords": ["romantic", "love", "crush", "valentine", "sweet", "intimate",
+                         "date", "date night", "wedding", "slow dance", "butterflies"],
+            "genres": ["R&B/Soul", "Pop"],
+        },
+        "nostalgic": {
+            "keywords": ["nostalgic", "throwback", "old school", "retro", "classic", "memories",
+                         "childhood", "oldies", "vintage", "remember", "80s", "90s", "2000s"],
+            "genres": ["Soundtrack", "Rock"],
+        },
+        "late_night": {
+            "keywords": ["late night", "midnight", "night drive", "drive", "driving", "road trip", "2am", "3am"],
+            "genres": ["R&B/Soul", "Alternative", "Hip-Hop/Rap", "Dance"],
+        },
+        "cozy": {
+            "keywords": ["cozy", "coffee", "warm", "acoustic", "rainy sunday", "blanket", "fireplace"],
+            "genres": ["Jazz", "Soundtrack", "R&B/Soul", "Alternative", "Relaxation"],
+        },
+        "confident": {
+            "keywords": ["confident", "boss", "swagger", "strut", "baddie", "empowered", "main character", "powerful"],
+            "genres": ["Hip-Hop/Rap", "Pop", "K-Pop", "R&B/Soul"],
+        },
+        "dreamy": {
+            "keywords": ["dreamy", "floaty", "ethereal", "spacey", "daydream", "airy"],
+            "genres": ["Alternative", "Relaxation", "Soundtrack"],
+        },
+        "epic": {
+            "keywords": ["epic", "cinematic", "movie", "film", "anime", "orchestral", "grand"],
+            "genres": ["Soundtrack", "Hard Rock", "Rock"],
+        },
     }
 
 
-def base_chart(chart: go.Figure, height: int = 420) -> go.Figure:
-    chart.update_layout(
-        height=height,
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(238,249,255,0.15)",
-        font={"color": color["text"], "family": "Nunito, Quicksand, sans-serif"},
-        title={"font": {"size": 19, "color": color["text"], "family": "Poxel Local, Pixelify Sans, Nunito, sans-serif"}, "x": 0.02},
-        margin={"l": 52, "r": 24, "t": 58, "b": 46},
-        hoverlabel={
-            "bgcolor": "#F6FCFF",
-            "bordercolor": "#A8C7D8",
-            "font": {"color": "#101010", "family": "Nunito"},
-        },
-        legend={
-            "orientation": "h",
-            "yanchor": "bottom",
-            "y": 1.02,
-            "xanchor": "right",
-            "x": 1,
-            "font": {"size": 11, "color": color["text"], "family": "Nunito"},
-            "bgcolor": "rgba(255,255,255,0.0)",
-        },
-    )
-
-    chart.update_xaxes(
-        showgrid=True,
-        gridcolor=color["grid"],
-        zeroline=False,
-        linecolor="rgba(16,16,16,0.26)",
-        tickfont={"color": color["text"], "family": "Nunito"},
-        title_font={"color": color["text"], "family": "Nunito"},
-    )
-
-    chart.update_yaxes(
-        showgrid=True,
-        gridcolor=color["grid"],
-        zeroline=False,
-        linecolor="rgba(16,16,16,0.26)",
-        tickfont={"color": color["text"], "family": "Nunito"},
-        title_font={"color": color["text"], "family": "Nunito"},
-    )
-
-    return chart
-
-
-chart_count = 0
-
-def show_chart(chart: go.Figure, key: str | None = None):
-    global chart_count
-
-    chart_count += 1
-
-    if key is None:
-        key = f"plotly_chart_{chart_count}"
-
-    return st.plotly_chart(
-        chart,
-        width="stretch",
-        key=key,
-        config={"displayModeBar": False, "responsive": True},
-    )
-
-def short_text(value, size: int = 40) -> str:
-    text = str(value)
-
-    if len(text) <= size:
-        return text
-
-    return text[: size - 1] + "…"
-
-
-def rate_text(value) -> str:
-    if pd.isna(value):
-        return "0.0%"
-
-    return f"{float(value):.1%}"
-
-
-def count_text(value) -> str:
-    if pd.isna(value):
-        return "0"
-
-    return f"{float(value):,.0f}"
-
-
-def date_time(value, short: bool = True) -> str:
-    if pd.isna(value):
-        return ""
-
-    time = pd.to_datetime(value)
-
-    month = time.strftime("%b")
-    day = time.day
-    year = time.year
-    hour = time.hour % 12 or 12
-    minute = time.minute
-    period = "AM" if time.hour < 12 else "PM"
-
-    if short:
-        return f"{month} {day} · {hour}:{minute:02d} {period}"
-
-    return f"{month} {day}, {year} · {hour}:{minute:02d} {period}"
-
-
-def day_text(value) -> str:
-    if pd.isna(value):
-        return ""
-
-    time = pd.to_datetime(value)
-
-    return f"{time.strftime('%b')} {time.day}, {time.year}"
-
-
-def score_value(profile: pd.DataFrame, metric: str) -> float:
-    row = profile[profile["metric"].eq(metric)]
-
-    if row.empty:
-        return 0.0
-
-    return float(row["score"].iloc[0])
-
-
-def label_value(profile: pd.DataFrame, metric: str) -> str:
-    row = profile[profile["metric"].eq(metric)]
-
-    if row.empty:
-        return ""
-
-    return str(row["value"].iloc[0])
-
-
-def top_value(value: pd.Series) -> str:
-    value = value.dropna().astype(str)
-
-    if value.empty:
-        return "Unknown"
-
-    return value.value_counts().index[0]
-
-
-def display_table(data: pd.DataFrame, rows: int = 50, pill: str | None = None) -> str:
-    shown = data.head(rows).copy()
-
-    for column in shown.columns:
-        if column in {"start", "end", "played_at"}:
-            shown[column] = shown[column].map(lambda value: date_time(value, short=True) if pd.notna(value) else "")
-
-        elif column == "date":
-            shown[column] = shown[column].map(lambda value: day_text(value) if pd.notna(value) else "")
-
-        elif column == "affinity_score":
-            shown[column] = shown[column].map(lambda value: f"{float(value):.3f}" if pd.notna(value) else "")
-
-        elif "rate" in column or "share" in column:
-            shown[column] = shown[column].map(lambda value: rate_text(value) if pd.notna(value) else "")
-
-        elif column == "minutes":
-            shown[column] = shown[column].map(lambda value: f"{float(value):,.1f}" if pd.notna(value) else "")
-
-        elif column in {"plays", "tracks", "artists", "albums", "genres", "active_days", "playlist_count", "discoveries", "route_value"}:
-            shown[column] = shown[column].map(lambda value: count_text(value) if pd.notna(value) else "")
-
-        elif column == "recommender_ready":
-            shown[column] = shown[column].map(lambda value: "Ready" if bool(value) else "Not ready")
-
-        elif column == "candidate_class":
-            shown[column] = shown[column].map(lambda value: role_name.get(str(value), str(value)))
-
-    shown = shown.rename(columns={column: name_map.get(column, column.replace("_", " ").title()) for column in shown.columns})
-
-    html_text = "<table class='ledger'><thead><tr>"
-
-    for column in shown.columns:
-        html_text += f"<th>{html.escape(str(column))}</th>"
-
-    html_text += "</tr></thead><tbody>"
-
-    for _, row in shown.iterrows():
-        html_text += "<tr>"
-
-        for column in shown.columns:
-            value = html.escape(str(row[column]))
-
-            if pill is not None and column == pill:
-                html_text += f"<td><span class='pill'>{value}</span></td>"
-            else:
-                html_text += f"<td>{value}</td>"
-
-        html_text += "</tr>"
-
-    html_text += "</tbody></table>"
-
-    return html_text
-
-
-def ring_chart(label: str, value: str, score: float, shade: str, note: str, hover: str) -> go.Figure:
-    score = max(0.0, min(float(score), 1.0))
-    angle = np.linspace(90, 90 - 360 * score, 130)
-    base = np.linspace(0, 360, 260)
-
-    chart = go.Figure()
-
-    chart.add_trace(
-        go.Scatterpolar(
-            r=[1] * len(base),
-            theta=base,
-            mode="lines",
-            line={"color": "rgba(16,16,16,0.10)", "width": 12},
-            hoverinfo="skip",
-            showlegend=False,
-        )
-    )
-
-    chart.add_trace(
-        go.Scatterpolar(
-            r=[1] * len(angle),
-            theta=angle,
-            mode="lines",
-            line={"color": shade, "width": 13},
-            hovertemplate=f"{hover}<br>{value}<extra></extra>",
-            showlegend=False,
-        )
-    )
-
-    chart.add_trace(
-        go.Scatterpolar(
-            r=[1],
-            theta=[90 - 360 * score],
-            mode="markers",
-            marker={"size": 12, "color": shade, "line": {"color": color["line"], "width": 1}},
-            hovertemplate=f"{hover}<extra></extra>",
-            showlegend=False,
-        )
-    )
-
-    chart.add_annotation(
-        x=0.5,
-        y=0.57,
-        text=f"<b>{value}</b>",
-        showarrow=False,
-        font={"size": 23, "color": color["text"], "family": "Nunito"},
-    )
-
-    chart.add_annotation(
-        x=0.5,
-        y=0.38,
-        text=label,
-        showarrow=False,
-        font={"size": 11, "color": color["text"], "family": "Nunito"},
-    )
-
-    chart.add_annotation(
-        x=0.5,
-        y=0.24,
-        text=note,
-        showarrow=False,
-        font={"size": 9, "color": color["soft"], "family": "Nunito"},
-    )
-
-    chart.update_layout(
-        height=200,
-        margin={"l": 6, "r": 6, "t": 6, "b": 6},
-        paper_bgcolor="rgba(0,0,0,0)",
-        hoverlabel={"bgcolor": "#F6FCFF", "bordercolor": "#A8C7D8", "font": {"color": "#101010"}},
-        polar={
-            "bgcolor": "rgba(0,0,0,0)",
-            "radialaxis": {"visible": False, "range": [0, 1.22]},
-            "angularaxis": {"visible": False},
-        },
-    )
-
-    return chart
-
-
-def make_tracks(data: pd.DataFrame) -> pd.DataFrame:
-    tracks = (
-        data.groupby("track_key", dropna=False)
-        .agg(
-            display=("display", "first"),
-            track=("track", "first"),
-            artist=("artist", "first"),
-            album=("album", "first"),
-            genre=("genre", "first"),
-            plays=("track_key", "size"),
-            minutes=("minutes", "sum"),
-            full_plays=("full_play", "sum"),
-            friction_plays=("friction", "sum"),
-            average_share=("play_share", "mean"),
-            active_days=("date", "nunique"),
-        )
-        .reset_index()
-    )
-
-    tracks["full_rate"] = tracks["full_plays"] / tracks["plays"]
-    tracks["friction_rate"] = tracks["friction_plays"] / tracks["plays"]
-
-    return tracks.sort_values(["plays", "minutes"], ascending=[False, False]).reset_index(drop=True)
-
-
-def make_artists(data: pd.DataFrame) -> pd.DataFrame:
-    artists = (
-        data.groupby("artist", dropna=False)
-        .agg(
-            plays=("track_key", "size"),
-            tracks=("track_key", "nunique"),
-            albums=("album", "nunique"),
-            genres=("genre", "nunique"),
-            minutes=("minutes", "sum"),
-            full_plays=("full_play", "sum"),
-            friction_plays=("friction", "sum"),
-        )
-        .reset_index()
-    )
-
-    artists["full_rate"] = artists["full_plays"] / artists["plays"]
-    artists["friction_rate"] = artists["friction_plays"] / artists["plays"]
-
-    return artists.sort_values(["plays", "minutes"], ascending=[False, False]).reset_index(drop=True)
-
-
-def make_days(data: pd.DataFrame) -> pd.DataFrame:
-    days = (
-        data.groupby("date", dropna=True)
-        .agg(
-            plays=("track_key", "size"),
-            tracks=("track_key", "nunique"),
-            artists=("artist", "nunique"),
-            minutes=("minutes", "sum"),
-            full_plays=("full_play", "sum"),
-            friction_plays=("friction", "sum"),
-            top_artist=("artist", top_value),
-            top_source=("source_label", top_value),
-            top_genre=("genre", top_value),
-        )
-        .reset_index()
-    )
-
-    days["date"] = pd.to_datetime(days["date"])
-    days["full_rate"] = days["full_plays"] / days["plays"]
-    days["friction_rate"] = days["friction_plays"] / days["plays"]
-
-    return days.sort_values("date").reset_index(drop=True)
-
-
-def wave_chart(days: pd.DataFrame, title: str) -> go.Figure:
-    data = days.copy()
-
-    if data.empty:
-        return base_chart(go.Figure(), 390)
-
-    q1 = data["minutes"].quantile(0.50)
-    q2 = data["minutes"].quantile(0.78)
-    q3 = data["minutes"].quantile(0.93)
-
-    data["tone"] = np.select(
-        [data["minutes"].ge(q3), data["minutes"].ge(q2), data["minutes"].ge(q1)],
-        [color["coral"], color["yellow"], color["cyan"]],
-        default=color["sky"],
-    )
-
-    data["dot"] = 10 + 38 * (data["minutes"] / max(data["minutes"].max(), 1)).fillna(0)
-
-    chart = go.Figure()
-
-    chart.add_trace(
-        go.Scatter(
-            x=data["date"],
-            y=data["minutes"],
-            mode="markers",
-            marker={
-                "size": data["dot"],
-                "color": data["tone"],
-                "opacity": 0.74,
-                "line": {"color": "rgba(16,16,16,0.34)", "width": 1},
-            },
-            customdata=data[["plays", "tracks", "artists", "top_artist", "top_genre", "top_source"]],
-            hovertemplate="Listening Pulse<br>%{x|%b %-d, %Y}<br>Minutes: %{y:.1f}<br>Plays: %{customdata[0]:,}<br>Top Artist: %{customdata[3]}<br>Top Genre: %{customdata[4]}<br>Top Source: %{customdata[5]}<extra></extra>",
-            showlegend=False,
-        )
-    )
-
-    chart.add_trace(
-        go.Scatter(
-            x=data["date"],
-            y=data["minutes"].rolling(7, min_periods=1).mean(),
-            mode="lines",
-            line={"color": "rgba(16,16,16,0.28)", "width": 1.2, "dash": "dot"},
-            hoverinfo="skip",
-            showlegend=False,
-        )
-    )
-
-    for _, row in data.sort_values("minutes", ascending=False).head(3).iterrows():
-        chart.add_annotation(
-            x=row["date"],
-            y=row["minutes"],
-            text=f"{row['minutes']:.0f}",
-            showarrow=True,
-            arrowcolor="rgba(16,16,16,0.34)",
-            font={"size": 11, "color": color["text"], "family": "Nunito"},
-        )
-
-    chart.update_layout(title=title)
-    chart.update_xaxes(title_text="Date", tickformat="%b %Y")
-    chart.update_yaxes(title_text="Minutes")
-
-    return base_chart(chart, 415)
-
-
-def split_ring(repeat: float, discovery: float) -> go.Figure:
-    repeat = max(0.0, min(float(repeat), 1.0))
-    discovery = max(0.0, min(float(discovery), 1.0))
-    base = np.linspace(0, 360, 260)
-
-    chart = go.Figure()
-
-    for radius in [0.82, 1.08]:
-        chart.add_trace(
-            go.Scatterpolar(
-                r=[radius] * len(base),
-                theta=base,
-                mode="lines",
-                line={"color": "rgba(16,16,16,0.10)", "width": 13},
-                showlegend=False,
-                hoverinfo="skip",
-            )
-        )
-
-    for value, radius, shade, name in [
-        (repeat, 0.82, color["cyan"], "Repeat History"),
-        (discovery, 1.08, color["sky"], "Discovery Edge"),
-    ]:
-        angle = np.linspace(90, 90 - 360 * value, 140)
-        chart.add_trace(
-            go.Scatterpolar(
-                r=[radius] * len(angle),
-                theta=angle,
-                mode="lines",
-                line={"color": shade, "width": 16},
-                name=name,
-                hovertemplate=f"{name}: {value:.1%}<extra></extra>",
-            )
-        )
-
-    chart.add_annotation(
-        x=0.5,
-        y=0.56,
-        text=f"<b>Repeat History</b><br>{repeat:.1%}",
-        showarrow=False,
-        font={"size": 17, "color": color["text"], "family": "Nunito"},
-    )
-
-    chart.add_annotation(
-        x=0.5,
-        y=0.34,
-        text=f"Discovery Edge {discovery:.1%}",
-        showarrow=False,
-        font={"size": 11, "color": color["soft"], "family": "Nunito"},
-    )
-
-    chart.update_layout(
-        title="Repeat History vs. Discovery",
-        height=415,
-        margin={"l": 18, "r": 18, "t": 58, "b": 18},
-        paper_bgcolor="rgba(0,0,0,0)",
-        polar={
-            "bgcolor": "rgba(0,0,0,0)",
-            "radialaxis": {"visible": False, "range": [0, 1.3]},
-            "angularaxis": {"visible": False},
-        },
-        font={"color": color["text"], "family": "Nunito"},
-        legend={"orientation": "h", "x": 0.18, "y": -0.04},
-    )
-
-    return chart
-
-
-def rhythm_grid(data: pd.DataFrame, metric: str) -> go.Figure:
-    hours = (
-        data.groupby(["weekday_num", "weekday", "hour"], dropna=True)
-        .agg(
-            plays=("track_key", "size"),
-            minutes=("minutes", "sum"),
-            full_plays=("full_play", "sum"),
-            friction_plays=("friction", "sum"),
-        )
-        .reset_index()
-    )
-
-    if hours.empty:
-        return base_chart(go.Figure(), 420)
-
-    hours["full_rate"] = hours["full_plays"] / hours["plays"]
-    hours["friction_rate"] = hours["friction_plays"] / hours["plays"]
-
-    scale = hours[metric].fillna(0)
-    size = 10 + 40 * (scale / max(scale.max(), 1))
-    shade = np.select(
-        [scale.ge(scale.quantile(0.90)), scale.ge(scale.quantile(0.65))],
-        [color["coral"], color["yellow"]],
-        default=color["sky"],
-    )
-
-    chart = go.Figure()
-
-    chart.add_trace(
-        go.Scatter(
-            x=hours["hour"],
-            y=hours["weekday"],
-            mode="markers",
-            marker={
-                "size": size,
-                "color": shade,
-                "opacity": 0.74,
-                "line": {"color": "rgba(16,16,16,0.30)", "width": 1},
-            },
-            customdata=hours[["plays", "minutes", "full_rate", "friction_rate"]],
-            hovertemplate="Daily Rhythm<br>%{y} at %{x}:00<br>Plays: %{customdata[0]}<br>Minutes: %{customdata[1]:.1f}<br>Completion: %{customdata[2]:.1%}<br>Skip Rate: %{customdata[3]:.1%}<extra></extra>",
-            showlegend=False,
-        )
-    )
-
-    order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-
-    chart.update_layout(title="Daily Rhythm")
-    chart.update_xaxes(title_text="Hour", dtick=2)
-    chart.update_yaxes(title_text="Weekday", categoryorder="array", categoryarray=list(reversed(order)))
-
-    return base_chart(chart, 430)
-
-
-def planet_chart(data: pd.DataFrame) -> go.Figure:
-    genres = data.copy().sort_values("plays", ascending=False).head(12).reset_index(drop=True)
-
-    if genres.empty:
-        return base_chart(go.Figure(), 480)
-
-    total = max(genres["plays"].sum(), 1)
-    genres["share"] = genres["plays"] / total
-
-    x_values = []
-    y_values = []
-
-    for place in range(len(genres)):
-        if place == 0:
-            x_values.append(0)
-            y_values.append(0)
-        else:
-            angle = 2 * math.pi * (place - 1) / max(1, len(genres) - 1)
-            radius = 1.55 + 0.18 * place
-            x_values.append(radius * math.cos(angle))
-            y_values.append(radius * math.sin(angle))
-
-    genres["x"] = x_values
-    genres["y"] = y_values
-    genres["size"] = 46 + 138 * genres["share"]
-    genres["shade"] = genres["genre"].map(lambda value: genre_color.get(str(value), color["gray"]))
-    genres["label"] = np.where(genres.index < 6, genres["genre"], "")
-
-    chart = go.Figure()
-
-    for radius in [1.55, 2.05, 2.55, 3.05]:
-        circle_x = [radius * math.cos(step) for step in np.linspace(0, 2 * math.pi, 160)]
-        circle_y = [radius * math.sin(step) for step in np.linspace(0, 2 * math.pi, 160)]
-        chart.add_trace(
-            go.Scatter(
-                x=circle_x,
-                y=circle_y,
-                mode="lines",
-                line={"color": "rgba(16,16,16,0.08)", "width": 1},
-                hoverinfo="skip",
-                showlegend=False,
-            )
-        )
-
-    chart.add_trace(
-        go.Scatter(
-            x=genres["x"],
-            y=genres["y"],
-            mode="markers+text",
-            marker={
-                "size": genres["size"],
-                "color": genres["shade"],
-                "opacity": 0.70,
-                "line": {"color": "rgba(16,16,16,0.46)", "width": 1.2},
-            },
-            text=genres["label"],
-            textposition="middle center",
-            textfont={"size": 10, "color": color["text"], "family": "Nunito"},
-            customdata=genres[["genre", "plays", "tracks", "artists", "minutes", "share", "full_rate", "friction_rate"]],
-            hovertemplate="<b>%{customdata[0]}</b><br>Plays: %{customdata[1]:,}<br>Share: %{customdata[5]:.1%}<br>Minutes: %{customdata[4]:.1f}<br>Completion: %{customdata[6]:.1%}<br>Skip Rate: %{customdata[7]:.1%}<extra></extra>",
-            showlegend=False,
-        )
-    )
-
-    chart.update_layout(
-        title="Genre Planets",
-        xaxis={"visible": False},
-        yaxis={"visible": False, "scaleanchor": "x", "scaleratio": 1},
-    )
-
-    return base_chart(chart, 500)
-
-
-def artist_chart(data: pd.DataFrame) -> go.Figure:
-    artists = data.head(18).copy().reset_index(drop=True)
-
-    if artists.empty:
-        return base_chart(go.Figure(), 420)
-
-    artists["rank"] = np.arange(1, len(artists) + 1)
-    artists["x"] = artists["rank"]
-    artists["y"] = np.sin(artists["rank"] / 1.8) * 0.50
-    artists["size"] = 20 + 64 * artists["plays"] / max(artists["plays"].max(), 1)
-    artists["label"] = np.where(artists.index < 10, artists["artist"].map(lambda value: short_text(value, 16)), "")
-
-    chart = go.Figure()
-
-    chart.add_trace(
-        go.Scatter(
-            x=artists["x"],
-            y=artists["y"],
-            mode="lines",
-            line={"color": "rgba(16,16,16,0.20)", "width": 1.1, "dash": "dot"},
-            hoverinfo="skip",
-            showlegend=False,
-        )
-    )
-
-    chart.add_trace(
-        go.Scatter(
-            x=artists["x"],
-            y=artists["y"],
-            mode="markers+text",
-            marker={
-                "size": artists["size"],
-                "color": color["sky"],
-                "opacity": 0.72,
-                "line": {"color": "rgba(16,16,16,0.46)", "width": 1},
-            },
-            text=artists["label"],
-            textposition="top center",
-            textfont={"size": 10, "color": color["text"], "family": "Nunito"},
-            customdata=artists[["artist", "plays", "tracks", "albums", "genres", "minutes", "friction_rate"]],
-            hovertemplate="<b>%{customdata[0]}</b><br>Rank: %{x}<br>Plays: %{customdata[1]:,}<br>Tracks: %{customdata[2]:,}<br>Minutes: %{customdata[5]:.1f}<br>Skip Rate: %{customdata[6]:.1%}<extra></extra>",
-            showlegend=False,
-        )
-    )
-
-    chart.update_layout(title="Artist Pull")
-    chart.update_xaxes(title_text="Rank", showgrid=False)
-    chart.update_yaxes(visible=False)
-
-    return base_chart(chart, 420)
-
-
-def route_chart(data: pd.DataFrame, value_col: str, title: str) -> go.Figure:
-    route = data.copy().loc[:, ~data.columns.duplicated()].copy()
-
-    if value_col not in route.columns:
-        raise ValueError(f"Missing route value column: {value_col}")
-
-    route = route.sort_values(value_col, ascending=True).reset_index(drop=True)
-
-    if route.empty:
-        return base_chart(go.Figure(), 420)
-
-    chart = go.Figure()
-    max_value = max(route[value_col].max(), 1)
-
-    for place, row in route.iterrows():
-        source_type = str(row.get("source_role", "Unknown"))
-        shade = role_color.get(source_type, color["gray"])
-        width = 7 + 28 * row[value_col] / max_value
-
-        chart.add_trace(
-            go.Scatter(
-                x=[0, row[value_col]],
-                y=[place, place],
-                mode="lines+markers",
-                line={"color": shade, "width": width},
-                marker={
-                    "size": [7, 16],
-                    "color": shade,
-                    "line": {"color": color["line"], "width": 1},
-                },
-                text=[row["source_label"], row["source_label"]],
-                customdata=[[row.get("plays", 0), row.get("minutes", 0), row.get("source_role", ""), row.get(value_col, 0)]] * 2,
-                hovertemplate="<b>%{text}</b><br>Route Strength: %{customdata[3]:,}<br>Plays: %{customdata[0]:,}<br>Minutes: %{customdata[1]:.1f}<br>Source Type: %{customdata[2]}<extra></extra>",
-                showlegend=False,
-            )
-        )
-
-    chart.update_layout(title=title)
-    chart.update_xaxes(title_text=name_map.get(value_col, value_col.replace("_", " ").title()))
-    chart.update_yaxes(
-        title_text="Source",
-        tickmode="array",
-        tickvals=list(range(len(route))),
-        ticktext=route["source_label"].map(lambda value: short_text(value, 24)),
-        showgrid=False,
-    )
-
-    return base_chart(chart, 445)
-
-
-def discovery_chart(data: pd.DataFrame) -> go.Figure:
-    daily = data.copy()
-
-    if daily.empty:
-        return base_chart(go.Figure(), 400)
-
-    daily["size"] = 14 + 48 * daily["discoveries"] / max(daily["discoveries"].max(), 1)
-    palette = [color["cyan"], color["mint"], color["purple"], color["coral"]]
-    daily["shade"] = [palette[index % len(palette)] for index in range(len(daily))]
-
-    chart = go.Figure()
-
-    chart.add_trace(
-        go.Scatter(
-            x=daily["date"],
-            y=daily["discoveries"],
-            mode="markers",
-            marker={
-                "size": daily["size"],
-                "color": daily["shade"],
-                "opacity": 0.72,
-                "line": {"color": "rgba(16,16,16,0.40)", "width": 1},
-            },
-            customdata=daily[["top_source", "top_genre"]],
-            hovertemplate="Discovery Trail<br>%{x|%b %-d, %Y}<br>New Tracks: %{y}<br>Top Source: %{customdata[0]}<br>Top Genre: %{customdata[1]}<extra></extra>",
-            showlegend=False,
-        )
-    )
-
-    for _, row in daily.sort_values("discoveries", ascending=False).head(4).iterrows():
-        chart.add_annotation(
-            x=row["date"],
-            y=row["discoveries"],
-            text=f"{int(row['discoveries'])}",
-            showarrow=True,
-            arrowcolor="rgba(16,16,16,0.34)",
-            font={"size": 11, "color": color["text"], "family": "Nunito"},
-        )
-
-    chart.update_layout(title="Discovery Trail")
-    chart.update_xaxes(title_text="Date", tickformat="%b %Y")
-    chart.update_yaxes(title_text="New Tracks")
-
-    return base_chart(chart, 405)
-
-
-def source_constellation(data: pd.DataFrame) -> go.Figure:
-    source = data.copy()
-
-    if source.empty:
-        return base_chart(go.Figure(), 430)
-
-    source["size"] = 22 + 76 * source["plays"] / max(source["plays"].max(), 1)
-    source["shade"] = source["source_role"].map(lambda value: role_color.get(str(value), color["gray"]))
-    source["label"] = np.where(
-        source["source_label"].isin(["Library Playlist", "Album Page", "Search to Album", "Search", "Radio or Station"]),
-        source["source_label"],
-        "",
-    )
-
-    chart = go.Figure()
-
-    chart.add_trace(
-        go.Scatter(
-            x=source["discovery_share"],
-            y=source["friction_rate"],
-            mode="markers+text",
-            marker={
-                "size": source["size"],
-                "color": source["shade"],
-                "opacity": 0.70,
-                "line": {"color": "rgba(16,16,16,0.44)", "width": 1.3},
-            },
-            text=source["label"],
-            textposition="top center",
-            textfont={"size": 10, "color": color["text"], "family": "Nunito"},
-            customdata=source[["source_label", "source_role", "plays", "minutes", "full_rate", "repeat_share"]],
-            hovertemplate="<b>%{customdata[0]}</b><br>Source Type: %{customdata[1]}<br>Plays: %{customdata[2]:,}<br>Minutes: %{customdata[3]:.1f}<br>Completion: %{customdata[4]:.1%}<br>Repeats: %{customdata[5]:.1%}<extra></extra>",
-            showlegend=False,
-        )
-    )
-
-    chart.update_layout(title="Discovery vs. Skipping")
-    chart.update_xaxes(title_text="Discovery")
-    chart.update_yaxes(title_text="Skip Rate")
-
-    return base_chart(chart, 430)
-
-
-def warning_board(tracks: pd.DataFrame, limit: int) -> go.Figure:
-    data = tracks.copy().head(limit).sort_values("friction_rate").reset_index(drop=True)
-
-    if data.empty:
-        return base_chart(go.Figure(), 440)
-
-    chart = go.Figure()
-
-    for place, row in data.iterrows():
-        shade = color["red"] if row["friction_rate"] >= 0.90 else color["coral"]
-
-        chart.add_trace(
-            go.Scatter(
-                x=[0, row["friction_rate"]],
-                y=[place, place],
-                mode="lines+markers",
-                line={"color": "rgba(16,16,16,0.18)", "width": 3},
-                marker={
-                    "size": [5, 18],
-                    "color": ["rgba(16,16,16,0.18)", shade],
-                    "line": {"color": color["line"], "width": 1},
-                },
-                text=[row["display"], row["display"]],
-                customdata=[[row["track"], row["artist"], row["album"], row["plays"], row["minutes"], row["average_share"], row["full_rate"]]] * 2,
-                hovertemplate="<b>%{text}</b><br>Artist: %{customdata[1]}<br>Plays: %{customdata[3]}<br>Minutes: %{customdata[4]:.1f}<br>Completion: %{customdata[5]:.1%}<br>Full Listens: %{customdata[6]:.1%}<extra></extra>",
-                showlegend=False,
-            )
-        )
-
-    chart.update_layout(title="Skip Signals")
-    chart.update_xaxes(title_text="Skip Rate", range=[0, 1.05])
-    chart.update_yaxes(
-        title_text="Track",
-        tickmode="array",
-        tickvals=list(range(len(data))),
-        ticktext=data["display"].map(lambda value: short_text(value, 36)),
-        showgrid=False,
-    )
-
-    return base_chart(chart, 500)
-
-
-def source_skip_chart(data: pd.DataFrame) -> go.Figure:
-    source = data.copy().sort_values("friction_rate", ascending=False).head(12).reset_index(drop=True)
-
-    if source.empty:
-        return base_chart(go.Figure(), 430)
-
-    source["x"] = [place % 4 for place in range(len(source))]
-    source["y"] = [-(place // 4) for place in range(len(source))]
-    source["size"] = 50 + 82 * source["plays"] / max(source["plays"].max(), 1)
-    source["shade"] = np.where(source["friction_rate"].ge(0.75), color["coral"], color["sky"])
-
-    chart = go.Figure()
-
-    chart.add_trace(
-        go.Scatter(
-            x=source["x"],
-            y=source["y"],
-            mode="markers+text",
-            marker={
-                "size": source["size"],
-                "color": source["shade"],
-                "opacity": 0.68,
-                "line": {"color": color["red"], "width": 1 + 7 * source["friction_rate"].fillna(0)},
-            },
-            text=source["source_label"].map(lambda value: short_text(value, 17)),
-            textposition="middle center",
-            textfont={"size": 10, "color": color["text"], "family": "Nunito"},
-            customdata=source[["plays", "friction_rate", "full_rate"]],
-            hovertemplate="<b>%{text}</b><br>Plays: %{customdata[0]:,}<br>Skip Rate: %{customdata[1]:.1%}<br>Completion: %{customdata[2]:.1%}<extra></extra>",
-            showlegend=False,
-        )
-    )
-
-    chart.update_layout(title="Source Breakdown", xaxis={"visible": False}, yaxis={"visible": False})
-
-    return base_chart(chart, 430)
-
-
-def terrain_chart(data: pd.DataFrame) -> go.Figure:
-    values = data["play_share"].dropna().clip(0, 1.5)
-
-    if values.empty:
-        return base_chart(go.Figure(), 380)
-
-    counts, bins = np.histogram(values, bins=34, range=(0, 1.5))
-    mids = (bins[:-1] + bins[1:]) / 2
-
-    chart = go.Figure()
-
-    chart.add_trace(
-        go.Scatter(
-            x=mids,
-            y=counts,
-            mode="markers",
-            marker={
-                "size": 10 + 38 * counts / max(counts.max(), 1),
-                "color": np.where(mids < 0.25, color["coral"], np.where(mids > 0.8, color["mint"], color["sky"])),
-                "opacity": 0.68,
-                "line": {"color": "rgba(16,16,16,0.36)", "width": 1},
-            },
-            hovertemplate="Completion Terrain<br>Completion: %{x:.2f}<br>Count: %{y}<extra></extra>",
-            showlegend=False,
-        )
-    )
-
-    chart.add_trace(
-        go.Scatter(
-            x=mids,
-            y=counts,
-            mode="lines",
-            line={"color": "rgba(16,16,16,0.20)", "width": 1, "dash": "dot"},
-            hoverinfo="skip",
-            showlegend=False,
-        )
-    )
-
-    chart.update_layout(title="Completion Terrain")
-    chart.update_xaxes(title_text="Completion")
-    chart.update_yaxes(title_text="Count")
-
-    return base_chart(chart, 385)
-def recommendation_color(value: str) -> str:
-    mapping = {
-        "Bring Back": color["mint"],
-        "Keep Close": color["cyan"],
-        "Rediscover": color["purple"],
-        "Risky": color["coral"],
-        "Leave Alone": color["gray"],
-        "Faded": color["pink"],
-    }
-
-    return mapping.get(str(value), color["gray"])
-
-
-def clean_role(data: pd.DataFrame) -> pd.DataFrame:
-    table = data.copy()
-
-    if "recommend_role" not in table.columns and "candidate_class" in table.columns:
-        table["recommend_role"] = table["candidate_class"].map(role_name)
-
-    if "recommend_role" in table.columns:
-        table["recommend_role"] = table["recommend_role"].fillna("Bring Back").astype(str)
-
-    return table
-
-
-def recommendation_map(candidates: pd.DataFrame, seed_key: str | None = None) -> go.Figure:
-    data = clean_role(candidates).copy()
-
-    if data.empty:
-        return base_chart(go.Figure(), 500)
-
-    data["size"] = 12 + 56 * data["recommend_score"].fillna(0).clip(0, 1)
-    data["line_width"] = np.where(data["track_key"].astype(str).eq(str(seed_key)), 4, 1)
-
-    chart = go.Figure()
-
-    for role, group in data.groupby("recommend_role"):
-        chart.add_trace(
-            go.Scatter(
-                x=group["plays"],
-                y=group["affinity_score"],
-                mode="markers",
-                marker={
-                    "size": group["size"],
-                    "color": recommendation_color(role),
-                    "opacity": 0.66,
-                    "line": {
-                        "color": "rgba(16,16,16,0.46)",
-                        "width": group["line_width"],
-                    },
-                },
-                name=str(role),
-                customdata=group[
-                    [
-                        "display",
-                        "artist",
-                        "album",
-                        "genre",
-                        "recommend_score",
-                        "friction_rate",
-                        "recommend_reason",
-                    ]
-                ],
-                hovertemplate="<b>%{customdata[0]}</b><br>Artist: %{customdata[1]}<br>Album: %{customdata[2]}<br>Genre: %{customdata[3]}<br>Plays: %{x:,}<br>Affinity: %{y:.3f}<br>Recommendation Score: %{customdata[4]:.3f}<br>Skip Rate: %{customdata[5]:.1%}<br>%{customdata[6]}<extra></extra>",
-            )
-        )
-
-    xcut = data["plays"].quantile(0.75)
-    ycut = data["affinity_score"].quantile(0.75)
-
-    chart.add_vline(x=xcut, line_dash="dash", line_color="rgba(16,16,16,0.32)")
-    chart.add_hline(y=ycut, line_dash="dash", line_color="rgba(16,16,16,0.32)")
-
-    chart.add_annotation(x=xcut * 1.06, y=min(1, ycut * 1.08), text="Keep Close", showarrow=False)
-    chart.add_annotation(x=max(1, xcut * 0.35), y=min(1, ycut * 1.08), text="Rediscover", showarrow=False)
-    chart.add_annotation(x=xcut * 1.06, y=max(0, ycut * 0.55), text="Risky", showarrow=False)
-    chart.add_annotation(x=max(1, xcut * 0.35), y=max(0, ycut * 0.55), text="Leave Alone", showarrow=False)
-
-    chart.update_layout(title="Recommendation Map")
-    chart.update_xaxes(title_text="Exposure")
-    chart.update_yaxes(title_text="Affinity")
-
-    return base_chart(chart, 520)
-
-
-def recommendation_routes(results: pd.DataFrame) -> go.Figure:
-    data = clean_role(results).copy()
-
-    if data.empty:
-        return base_chart(go.Figure(), 420)
-
-    data = data.sort_values(["similarity", "recommend_score"], ascending=True).tail(12).reset_index(drop=True)
-
-    chart = go.Figure()
-
-    for place, row in data.iterrows():
-        shade = recommendation_color(row["recommend_role"])
-        width = 5 + 18 * float(row["similarity"])
-
-        chart.add_trace(
-            go.Scatter(
-                x=[0, row["similarity"]],
-                y=[place, place],
-                mode="lines+markers",
-                line={"color": shade, "width": width},
-                marker={
-                    "size": [6, 15],
-                    "color": shade,
-                    "line": {"color": color["line"], "width": 1},
-                },
-                text=[row["candidate_display"], row["candidate_display"]],
-                customdata=[
-                    [
-                        row["candidate_artist"],
-                        row["candidate_genre"],
-                        row["recommend_role"],
-                        row["recommend_score"],
-                        row["friction_rate"],
-                        row["recommend_reason"],
-                    ]
-                ]
-                * 2,
-                hovertemplate="<b>%{text}</b><br>Artist: %{customdata[0]}<br>Genre: %{customdata[1]}<br>Role: %{customdata[2]}<br>Similarity: %{x:.3f}<br>Recommendation Score: %{customdata[3]:.3f}<br>Skip Rate: %{customdata[4]:.1%}<br>%{customdata[5]}<extra></extra>",
-                showlegend=False,
-            )
-        )
-
-    chart.update_layout(title="Similar Tracks")
-    chart.update_xaxes(title_text="Similarity", range=[0, max(1.0, data["similarity"].max() + 0.04)])
-    chart.update_yaxes(
-        title_text="Track",
-        tickmode="array",
-        tickvals=list(range(len(data))),
-        ticktext=data["candidate_display"].map(lambda value: short_text(value, 34)),
-        showgrid=False,
-    )
-
-    return base_chart(chart, 470)
-
-
-def recommendation_summary(profile: pd.DataFrame) -> str:
-    values = profile.set_index("metric")["value"].to_dict()
-
-    ready = int(values.get("ready_tracks", 0))
-    pairs = int(values.get("recommendation_pairs", 0))
-    keep = int(values.get("keep_close", 0))
-    rediscover = int(values.get("rediscover", 0))
-    risky = int(values.get("risky", 0))
-
-    return (
-        f"The recommendation layer has {ready:,} tracks with enough signal to recommend again and "
-        f"{pairs:,} saved similar-track pairs. The strongest groups are {keep:,} tracks to keep close, "
-        f"{rediscover:,} tracks to rediscover, and {risky:,} tracks that need caution because their skip signal is high."
-    )
-
-
-def match_candidates(candidates: pd.DataFrame, query: str) -> pd.DataFrame:
-    data = clean_role(candidates).copy()
-    text = str(query).strip().lower()
-
-    if not text:
-        return data.sort_values(["recommend_score", "affinity_score"], ascending=False).head(80)
-
-    mask = (
-        data["display"].str.lower().str.contains(text, regex=False, na=False)
-        | data["artist"].str.lower().str.contains(text, regex=False, na=False)
-        | data["album"].str.lower().str.contains(text, regex=False, na=False)
-        | data["genre"].str.lower().str.contains(text, regex=False, na=False)
-    )
-
-    return data[mask].sort_values(["recommend_score", "affinity_score"], ascending=False).head(80)
-
-
-def candidate_label(row: pd.Series) -> str:
-    return f"{row['display']} — {row['artist']} · {row['recommend_role']} · {row['recommend_score']:.3f}"
-
-def arena_chart(features: pd.DataFrame) -> go.Figure:
-    data = features.copy()
-
-    if data.empty:
-        return base_chart(go.Figure(), 480)
-
-    data["size"] = 13 + 58 * data["minutes"] / max(data["minutes"].max(), 1)
-    xcut = data["plays"].quantile(0.75)
-    ycut = data["affinity_score"].quantile(0.75)
-
-    chart = go.Figure()
-
-    for name, group in data.groupby("candidate_class"):
-        clean_name = role_name.get(str(name), str(name))
-
-        chart.add_trace(
-            go.Scatter(
-                x=group["plays"],
-                y=group["affinity_score"],
-                mode="markers",
-                marker={
-                    "size": group["size"],
-                    "color": class_color.get(str(name), color["gray"]),
-                    "opacity": 0.66,
-                    "line": {
-                        "color": "rgba(16,16,16,0.46)",
-                        "width": np.where(group["friction_rate"].ge(0.75), 3, 1),
-                    },
-                },
-                name=clean_name,
-                customdata=group[["display", "artist", "album", "genre", "active_days", "friction_rate", "playlist_count", "ready_reason", "candidate_class"]],
-                hovertemplate="<b>%{customdata[0]}</b><br>Artist: %{customdata[1]}<br>Genre: %{customdata[3]}<br>Plays: %{x}<br>Affinity: %{y:.3f}<br>Skip Rate: %{customdata[5]:.1%}<br>Role: %{customdata[8]}<br>%{customdata[7]}<extra></extra>",
-            )
-        )
-
-    chart.add_vline(x=xcut, line_dash="dash", line_color="rgba(16,16,16,0.36)")
-    chart.add_hline(y=ycut, line_dash="dash", line_color="rgba(16,16,16,0.36)")
-    chart.add_annotation(x=xcut * 1.08, y=min(1, ycut * 1.08), text="Keep Close", showarrow=False)
-    chart.add_annotation(x=max(1, xcut * 0.35), y=min(1, ycut * 1.08), text="Rediscover", showarrow=False)
-    chart.add_annotation(x=xcut * 1.08, y=max(0, ycut * 0.55), text="Risky", showarrow=False)
-    chart.add_annotation(x=max(1, xcut * 0.35), y=max(0, ycut * 0.55), text="Leave Alone", showarrow=False)
-
-    chart.update_layout(title="Recommendation Map")
-    chart.update_xaxes(title_text="Exposure")
-    chart.update_yaxes(title_text="Affinity")
-
-    return base_chart(chart, 510)
-
-
-def node_strip(tracks: pd.DataFrame) -> go.Figure:
-    data = tracks.head(18).copy().reset_index(drop=True)
-
-    if data.empty:
-        return base_chart(go.Figure(), 390)
-
-    data["rank"] = np.arange(1, len(data) + 1)
-    data["x"] = data["rank"]
-    data["y"] = np.sin(data["rank"] / 2.0) * 0.28
-    data["size"] = 18 + 58 * data["plays"] / max(data["plays"].max(), 1)
-    data["label"] = np.where(data.index < 9, data["display"].map(lambda value: short_text(value, 18)), "")
-
-    chart = go.Figure()
-
-    chart.add_trace(
-        go.Scatter(
-            x=data["x"],
-            y=data["y"],
-            mode="lines",
-            line={"color": "rgba(16,16,16,0.20)", "width": 1.1, "dash": "dot"},
-            showlegend=False,
-            hoverinfo="skip",
-        )
-    )
-
-    chart.add_trace(
-        go.Scatter(
-            x=data["x"],
-            y=data["y"],
-            mode="markers+text",
-            marker={
-                "size": data["size"],
-                "color": color["mint"],
-                "opacity": 0.68,
-                "line": {"color": "rgba(16,16,16,0.46)", "width": 1},
-            },
-            text=data["label"],
-            textposition="top center",
-            textfont={"size": 10, "color": color["text"], "family": "Nunito"},
-            customdata=data[["display", "artist", "album", "genre", "plays", "minutes", "full_rate", "friction_rate"]],
-            hovertemplate="<b>%{customdata[0]}</b><br>Artist: %{customdata[1]}<br>Plays: %{customdata[4]}<br>Minutes: %{customdata[5]:.1f}<br>Completion: %{customdata[6]:.1%}<br>Skip Rate: %{customdata[7]:.1%}<extra></extra>",
-            showlegend=False,
-        )
-    )
-
-    chart.update_layout(title="Top Tracks")
-    chart.update_xaxes(title_text="Rank", showgrid=False)
-    chart.update_yaxes(visible=False)
-
-    return base_chart(chart, 395)
-
-
-def filter_data(tables: dict[str, pd.DataFrame]) -> pd.DataFrame:
-    plays = tables["plays"].copy()
-    features = tables["features"].copy()
-
-    st.sidebar.header("Filters")
-
-    first_date = plays["played_at"].min().date()
-    last_date = plays["played_at"].max().date()
-
-    dates = st.sidebar.date_input(
-        "Date range",
-        value=(first_date, last_date),
-        min_value=first_date,
-        max_value=last_date,
-    )
-
-    if isinstance(dates, tuple) and len(dates) == 2:
-        plays = plays[
-            (plays["played_at"].dt.date >= dates[0])
-            & (plays["played_at"].dt.date <= dates[1])
-        ]
-
-    artists = sorted(plays["artist"].dropna().unique().tolist())
-    chosen_artists = st.sidebar.multiselect("Artist", artists)
-
-    if chosen_artists:
-        plays = plays[plays["artist"].isin(chosen_artists)]
-
-    genres = sorted(plays["genre"].dropna().unique().tolist())
-    chosen_genres = st.sidebar.multiselect("Genre", genres)
-
-    if chosen_genres:
-        plays = plays[plays["genre"].isin(chosen_genres)]
-
-    sources = sorted(plays["source_label"].dropna().unique().tolist())
-    chosen_sources = st.sidebar.multiselect("Source", sources)
-
-    if chosen_sources:
-        plays = plays[plays["source_label"].isin(chosen_sources)]
-
-    minimum = st.sidebar.slider("Minimum track plays", 1, 25, 1, 1)
-    valid = features[features["plays"].ge(minimum)]["track_key"]
-    plays = plays[plays["track_key"].isin(valid)]
-
-    status = st.sidebar.selectbox(
-        "Track status",
-        [
-            "All tracks",
-            "High affinity",
-            "Core favorites",
-            "Rediscovery candidates",
-            "Lost discoveries",
-            "Recommender ready",
-            "High friction",
-        ],
-    )
-
-    if status == "High affinity":
-        valid = features[features["favorite_like"]]["track_key"]
-        plays = plays[plays["track_key"].isin(valid)]
-
-    elif status == "Core favorites":
-        valid = features[features["candidate_class"].eq("Core Favorite")]["track_key"]
-        plays = plays[plays["track_key"].isin(valid)]
-
-    elif status == "Rediscovery candidates":
-        valid = features[features["candidate_class"].eq("Rediscovery Candidate")]["track_key"]
-        plays = plays[plays["track_key"].isin(valid)]
-
-    elif status == "Lost discoveries":
-        valid = features[features["candidate_class"].eq("Lost Discovery")]["track_key"]
-        plays = plays[plays["track_key"].isin(valid)]
-
-    elif status == "Recommender ready":
-        valid = features[features["recommender_ready"]]["track_key"]
-        plays = plays[plays["track_key"].isin(valid)]
-
-    elif status == "High friction":
-        valid = features[features["friction_rate"].ge(features["friction_rate"].quantile(0.75))]["track_key"]
-        plays = plays[plays["track_key"].isin(valid)]
-
-    behavior = st.sidebar.selectbox(
-        "Play behavior",
-        [
-            "All plays",
-            "Full plays only",
-            "Friction-heavy plays",
-            "Discovery plays",
-            "Repeat plays",
-        ],
-    )
-
-    if behavior == "Full plays only":
-        plays = plays[plays["full_play"]]
-
-    elif behavior == "Friction-heavy plays":
-        plays = plays[plays["friction"]]
-
-    elif behavior == "Discovery plays":
-        plays = plays[plays["first_play"]]
-
-    elif behavior == "Repeat plays":
-        plays = plays[plays["repeat_seen"]]
-
-    return plays
-
-
-def show_about(data: pd.DataFrame, tables: dict[str, pd.DataFrame]) -> None:
-    profile = tables["profile"]
-    features = tables["features"]
-
-    page_head(
-        "About Me",
-        "I tend to move on quickly when a song does not click, but I also have a strong repeat history. My listening is shaped heavily by playlists, especially Library Playlist, and a lot of my activity happens at night. This page gives the quick overview: how much I repeat, how often I skip, how many discoveries stay, and how much of my listening is driven by playlists.",
-    )
-
-    summary(
-        "The quick read is that my listening is playlist-led, repeat-heavy, and selective. I skip quickly when something does not fit the moment, but the artists, playlists, and moods that do fit tend to pull me back repeatedly."
-    )
-
-    repeat = score_value(profile, "repeat_intensity")
-    retained = score_value(profile, "discovery_retention")
-    skipped = score_value(profile, "friction_score")
-    playlist = score_value(profile, "playlist_dependence")
-    artist = score_value(profile, "artist_concentration")
-    full = score_value(profile, "deep_listening")
-    night = score_value(profile, "night_share")
-    ready = int(features["recommender_ready"].sum())
-
-    first = st.columns(4)
-    metrics = [
-        ("Repeat History", rate_text(repeat), repeat, color["cyan"], "Repeat plays.", "Share of listening that comes from repeat plays."),
-        ("Skip Rate", rate_text(skipped), skipped, color["coral"], "Friction.", "Share of plays that ended with friction or low completion."),
-        ("Discovery Retention", rate_text(retained), retained, color["mint"], "Returned later.", "Share of first-time tracks that returned later."),
-        ("Tracks to Revisit", f"{ready:,}", min(ready / max(len(features), 1), 1), color["yellow"], "Recommend again.", "Tracks with enough signal to recommend again."),
-    ]
-
-    for column, metric in zip(first, metrics):
-        with column:
-            show_chart(ring_chart(*metric))
-
-    second = st.columns(4)
-    metrics = [
-        ("Playlist Pull", rate_text(playlist), playlist, color["mint"], "Source habit.", "How much listening depends on playlists."),
-        ("Artist Pull", rate_text(artist), artist, color["purple"], "Concentration.", "How concentrated listening is around top artists."),
-        ("Full Listens", rate_text(full), full, color["sky"], "Completion.", "Share of plays completed meaningfully."),
-        ("Night Listening", rate_text(night), night, color["pink"], "Late activity.", "Share of listening that happens at night."),
-    ]
-
-    for column, metric in zip(second, metrics):
-        with column:
-            show_chart(ring_chart(*metric))
-
-    days = make_days(data)
-    left, right = st.columns([1.35, 1])
-
-    with left:
-        show_chart(wave_chart(days, "Listening Pulse"))
-        caption("This chart shows my listening activity over time. Each dot represents a day. Larger dots mean more minutes listened. Coral dots highlight the biggest listening days, yellow dots show high activity, and cyan dots show normal activity.")
-
-    with right:
-        split = pd.Series(
-            {
-                "new": float(data["first_play"].sum()),
-                "repeat": float(data["repeat_seen"].sum()),
-            }
-        )
-        total = split.sum()
-        repeat_share = split["repeat"] / total if total else 0
-        discovery_share = split["new"] / total if total else 0
-        show_chart(split_ring(repeat_share, discovery_share))
-        caption("This shows whether my listening universe is built more from repeat history or first-time discoveries.")
-
-
-def show_listening(data: pd.DataFrame, tables: dict[str, pd.DataFrame]) -> None:
-    page_head(
-        "Listening",
-        "This page shows when I listen, how intense those listening moments are, and whether my routine is built from short sessions, long loops, or stronger listening stretches.",
-    )
-
-    days = make_days(data)
-    peak = days.sort_values("minutes", ascending=False).head(1)
-
-    if not peak.empty:
-        row = peak.iloc[0]
-        summary(
-            f"Peak day: {day_text(row['date'])}. I listened for {row['minutes']:.1f} minutes, led by {row['top_artist']}, {row['top_genre']}, and {row['top_source']}."
-        )
-
-    show_chart(wave_chart(days, "Listening Pulse"))
-    caption("This chart shows my listening activity over time. Each dot represents a day. Larger dots mean more minutes listened. Coral dots highlight the biggest listening days, yellow dots show high activity, and cyan dots show normal activity.")
-
-    metric = st.selectbox("Rhythm value", ["plays", "minutes", "full_rate", "friction_rate"])
-
-    show_chart(rhythm_grid(data, metric))
-    caption("This chart shows when listening happens by weekday and hour. Larger circles mean more plays in that time slot. Use it to see whether my listening is clustered around mornings, evenings, weekends, or late-night sessions.")
-
-    with st.expander("Open Listening Archive", expanded=False):
-        sessions = tables["sessions"].copy()
-        columns = [
-            "start",
-            "minutes",
-            "plays",
-            "tracks",
-            "artists",
-            "top_artist",
-            "top_source",
-            "session_type",
-            "full_rate",
-            "friction_rate",
-        ]
-        st.markdown(display_table(sessions[columns], rows=75, pill="Session"), unsafe_allow_html=True)
-
-
-def show_taste(data: pd.DataFrame) -> None:
-    page_head(
-        "Taste",
-        "This page explores the genres and artists that shape my listening. The goal is to show what takes up the most space, what pulls me back, and where I tend to finish or drop off.",
-    )
-
-    artists = make_artists(data)
-
-    genres = (
-        data.groupby("genre", dropna=False)
-        .agg(
-            plays=("track_key", "size"),
-            tracks=("track_key", "nunique"),
-            artists=("artist", "nunique"),
-            minutes=("minutes", "sum"),
-            full_plays=("full_play", "sum"),
-            friction_plays=("friction", "sum"),
-        )
-        .reset_index()
-    )
-
-    genres["full_rate"] = genres["full_plays"] / genres["plays"]
-    genres["friction_rate"] = genres["friction_plays"] / genres["plays"]
-    genres = genres.sort_values("plays", ascending=False)
-
-    top_genre = genres.iloc[0]["genre"] if not genres.empty else "Unknown"
-    summary(
-        f"{top_genre} takes up the most space in my listening, but the smaller genre planets show the other moods and sounds around it. The artist chart shows who pulls me back most often."
-    )
-
-    show_chart(planet_chart(genres))
-    caption("This is an exploration of the genres I listen to the most. Bigger planets mean more plays or listening share. The largest planet is the genre that takes up the most space in my music universe. Smaller planets show the other genres orbiting around it.")
-
-    show_chart(artist_chart(artists))
-    caption("This chart shows which artists pull me back the most. Larger circles represent more plays. The strongest artists are labeled first, while smaller artists can stay visible through hover details.")
-
-    with st.expander("Open Completion Field", expanded=False):
-        chart = go.Figure()
-        data_plot = genres.copy()
-        data_plot["size"] = 16 + 74 * data_plot["plays"] / max(data_plot["plays"].max(), 1)
-        data_plot["shade"] = data_plot["genre"].map(lambda value: genre_color.get(str(value), color["gray"]))
-
-        chart.add_trace(
-            go.Scatter(
-                x=data_plot["plays"],
-                y=data_plot["full_rate"],
-                mode="markers+text",
-                marker={
-                    "size": data_plot["size"],
-                    "color": data_plot["shade"],
-                    "opacity": 0.64,
-                    "line": {"color": color["line"], "width": 1 + 7 * data_plot["friction_rate"].fillna(0)},
-                },
-                text=np.where(data_plot.index < 8, data_plot["genre"].map(lambda value: short_text(value, 16)), ""),
-                textposition="top center",
-                customdata=data_plot[["genre", "tracks", "artists", "minutes", "friction_rate"]],
-                hovertemplate="<b>%{customdata[0]}</b><br>Plays: %{x:,}<br>Completion: %{y:.1%}<br>Skip Rate: %{customdata[4]:.1%}<extra></extra>",
-                showlegend=False,
-            )
-        )
-
-        chart.update_layout(title="Completion Field")
-        chart.update_xaxes(title_text="Plays")
-        chart.update_yaxes(title_text="Completion", range=[0, 1.05])
-        show_chart(base_chart(chart, 430))
-        caption("This chart compares how often each genre is played with how often it is completed. Genres farther right have more plays. Genres higher up have stronger completion. Thicker rings or warmer colors show more friction.")
-
-
-def show_discovery(data: pd.DataFrame, tables: dict[str, pd.DataFrame]) -> None:
-    page_head(
-        "Discovery",
-        "This page shows what I discover, what returns, and what fades out. It separates one-time finds from tracks that actually become part of my listening.",
-    )
-
-    features = tables["features"]
-    first_seen = data[data["first_play"]].copy()
-    retained = features[features["retained"]].copy()
-    faded = features[features["candidate_class"].eq("Lost Discovery")].copy()
-
-    summary(
-        "I discover new tracks throughout the listening history, but not every first signal becomes part of the repeat history. The counters separate new tracks, returned tracks, and faded tracks."
-    )
-
-    columns = st.columns(3)
-    metrics = [
-        ("New Tracks", f"{len(first_seen):,}", min(len(first_seen) / max(len(features), 1), 1), color["cyan"], "First heard.", "Tracks I heard for the first time."),
-        ("Returned Tracks", f"{len(retained):,}", min(len(retained) / max(len(features), 1), 1), color["mint"], "Came back.", "New tracks that came back later."),
-        ("Faded Tracks", f"{len(faded):,}", min(len(faded) / max(len(features), 1), 1), color["pink"], "Did not return.", "Tracks that had a first signal but did not return."),
-    ]
-
-    for column, metric in zip(columns, metrics):
-        with column:
-            show_chart(ring_chart(*metric))
-
-    daily = (
-        first_seen.groupby("date", dropna=True)
-        .agg(
-            discoveries=("track_key", "nunique"),
-            top_source=("source_label", top_value),
-            top_genre=("genre", top_value),
-        )
-        .reset_index()
-    )
-    daily["date"] = pd.to_datetime(daily["date"])
-
-    show_chart(discovery_chart(daily))
-    caption("This chart shows when new tracks entered my listening history. Each dot is a day with new discoveries. Larger dots mean more first-time tracks on that day.")
-
-    source = (
-        first_seen.groupby(["source_label", "source_role"], dropna=False)
-        .agg(
-            discoveries=("track_key", "nunique"),
-            plays=("track_key", "size"),
-            minutes=("minutes", "sum"),
-            full_rate=("full_play", "mean"),
-            friction_rate=("friction", "mean"),
-        )
-        .reset_index()
-    )
-
-    river = source[
-        ["source_label", "source_role", "discoveries", "plays", "minutes", "full_rate", "friction_rate"]
-    ].copy()
-    river["route_value"] = river["discoveries"]
-    river = river.loc[:, ~river.columns.duplicated()].copy()
-
-    show_chart(route_chart(river, "route_value", "Discovery Sources"))
-    caption("This chart shows where new music enters from. Longer routes mean more discoveries came from that source.")
-
-    with st.expander("Open Discovery Archive", expanded=False):
-        columns = [
-            "display",
-            "artist",
-            "album",
-            "genre",
-            "plays",
-            "full_rate",
-            "friction_rate",
-            "affinity_score",
-            "ready_reason",
-        ]
-        st.markdown(display_table(faded[columns], rows=75), unsafe_allow_html=True)
-
-
-def show_skips(data: pd.DataFrame) -> None:
-    page_head(
-        "Skips",
-        "This page shows where listening breaks down. A skip signal means I started a track but did not meaningfully complete, repeat, or keep it.",
-    )
-
-    summary(
-        "The main signal here is friction. A high skip rate does not always mean a song is bad; it means the play often ended early, had low completion, or did not turn into a retained listen."
-    )
-
-    columns = st.columns(3)
-    metrics = [
-        ("Skip Rate", rate_text(data["friction"].mean()), data["friction"].mean(), color["coral"], "Friction.", "Share of plays that ended with friction or low completion."),
-        ("Good Plays", rate_text(data["good_play"].mean()), data["good_play"].mean(), color["sky"], "Stayed.", "Share of plays that lasted beyond 30 seconds."),
-        ("Full Listens", rate_text(data["full_play"].mean()), data["full_play"].mean(), color["mint"], "Completed.", "Share of plays completed meaningfully."),
-    ]
-
-    for column, metric in zip(columns, metrics):
-        with column:
-            show_chart(ring_chart(*metric))
-
-    threshold = st.slider("Minimum Plays Gate", 2, 20, 4, 1)
-    tracks = make_tracks(data)
-    tracks = tracks[tracks["plays"].ge(threshold)].sort_values("friction_rate", ascending=False)
-
-    more = st.checkbox("Show More Skip Signals", value=False)
-    limit = 15 if more else 10
-
-    show_chart(warning_board(tracks, limit))
-    caption("This chart shows the tracks with the strongest skip signals. Coral dots mark tracks that were started but not meaningfully completed or retained. The default view stays limited so the chart remains readable.")
-
-    source = (
-        data.groupby("source_label")
-        .agg(
-            plays=("track_key", "size"),
-            friction_rate=("friction", "mean"),
-            full_rate=("full_play", "mean"),
-            minutes=("minutes", "sum"),
-        )
-        .reset_index()
-        .sort_values("friction_rate", ascending=False)
-    )
-
-    show_chart(source_skip_chart(source))
-    caption("This chart shows which sources create the most friction. Larger circles mean more activity from that source. Warmer colors mean higher skip behavior.")
-
-    show_chart(terrain_chart(data))
-    caption("This chart shows where plays end. It helps separate early drop-offs from full listens.")
-
-    with st.expander("Open Skip Archive", expanded=False):
-        columns = ["display", "artist", "album", "genre", "plays", "minutes", "full_rate", "friction_rate"]
-        st.markdown(display_table(tracks[columns], rows=75), unsafe_allow_html=True)
-
-
-def show_sources(data: pd.DataFrame) -> None:
-    page_head(
-        "Sources",
-        "This page shows where my listening starts. It explains whether my music comes mostly from playlists, search, radio, album pages, or other routes.",
-    )
-
-    source = (
-        data.groupby(["source_label", "source_role"], dropna=False)
-        .agg(
-            plays=("track_key", "size"),
-            tracks=("track_key", "nunique"),
-            artists=("artist", "nunique"),
-            minutes=("minutes", "sum"),
-            first_plays=("first_play", "sum"),
-            repeat_plays=("repeat_seen", "sum"),
-            full_rate=("full_play", "mean"),
-            friction_rate=("friction", "mean"),
-        )
-        .reset_index()
-    )
-
-    source["play_share"] = source["plays"] / source["plays"].sum()
-    source["discovery_share"] = source["first_plays"] / source["plays"]
-    source["repeat_share"] = source["repeat_plays"] / source["plays"]
-    source = source.loc[:, ~source.columns.duplicated()].copy()
-
-    top_source = source.sort_values("plays", ascending=False).iloc[0]["source_label"] if not source.empty else "Unknown"
-    summary(
-        f"Most of my listening starts from {top_source}. If that route dominates the map, it means the source strongly shapes what I hear, repeat, discover, and skip."
-    )
-
-    route = source.copy()
-    route["route_value"] = route["plays"]
-
-    show_chart(route_chart(route, "route_value", "Source Routes"))
-    caption("This chart shows the main entry points into my listening. Longer routes mean more plays from that source. If Library Playlist is the longest route, it means playlists shape a large part of my listening.")
-
-    show_chart(source_constellation(source))
-    caption("This chart compares each source by discovery and skip behavior. Farther right means more discovery. Higher means more skipping. Larger circles mean more plays.")
-
-    with st.expander("Open Source Archive", expanded=False):
-        st.markdown(display_table(source, rows=75, pill="Source Type"), unsafe_allow_html=True)
-
-
-def show_recommendations(tables: dict[str, pd.DataFrame]) -> None:
-    page_head(
-        "Recommendations",
-        "This page looks at which tracks should come back, which ones are strong favorites, and which ones may be too risky to recommend again.",
-    )
-
-    candidates = clean_role(tables["recommend_candidates"]).copy()
-    pairs = clean_role(tables["recommendations"]).copy()
-    profile = tables["recommend_profile"].copy()
-
-    summary(recommendation_summary(profile))
-
-    role_options = [
-        "All roles",
-        "Bring Back",
-        "Keep Close",
-        "Rediscover",
-        "Risky",
-        "Leave Alone",
-        "Faded",
-    ]
-
-    left, right = st.columns([1, 1])
-
-    with left:
-        query = st.text_input("Search track, artist, album, or genre", value="")
-
-    with right:
-        role_filter = st.selectbox("Recommendation role", role_options)
-
-    shown = match_candidates(candidates, query)
-
-    if role_filter != "All roles":
-        shown = shown[shown["recommend_role"].eq(role_filter)]
-
-    if shown.empty:
-        st.warning("No recommendation candidates match the current search.")
-        return
-
-    choices = shown.index.tolist()
-
-    seed_index = st.selectbox(
-        "Choose a seed track",
-        choices,
-        format_func=lambda value: candidate_label(shown.loc[value]),
-    )
-
-    seed = shown.loc[seed_index]
-    seed_key = str(seed["track_key"])
-
-    st.markdown(
-        f"""
-        <div class="identity-card">
-            <div class="identity-title">{html.escape(str(seed['display']))}</div>
-            <p class="identity-text">
-                {html.escape(str(seed['artist']))} · {html.escape(str(seed['genre']))}.
-                Role: {html.escape(str(seed['recommend_role']))}.
-                Recommendation score: {float(seed['recommend_score']):.3f}.
-                Skip rate: {float(seed['friction_rate']):.1%}.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    results = pairs[pairs["seed_track_key"].astype(str).eq(seed_key)].copy()
-    results = results.sort_values(["similarity", "recommend_score"], ascending=[False, False]).head(15)
-
-    show_chart(recommendation_map(candidates, seed_key=seed_key))
-    caption("This chart compares exposure and affinity. Tracks with higher affinity and enough exposure are stronger candidates to bring back. Tracks with high skip behavior should be treated carefully.")
-
-    show_chart(recommendation_routes(results))
-    caption("This chart shows the closest recommendation routes for the selected seed track. Longer routes mean stronger similarity.")
-
-    with st.expander("Open Similar Track Results", expanded=False):
-        columns = [
-            "candidate_display",
-            "candidate_artist",
-            "candidate_album",
-            "candidate_genre",
-            "similarity",
-            "recommend_role",
-            "recommend_score",
-            "friction_rate",
-            "recommend_reason",
-        ]
-
-        table = results[columns].rename(
-            columns={
-                "candidate_display": "display",
-                "candidate_artist": "artist",
-                "candidate_album": "album",
-                "candidate_genre": "genre",
-                "similarity": "affinity_score",
-                "recommend_score": "average_share",
-                "recommend_reason": "ready_reason",
-            }
-        )
-
-        st.markdown(display_table(table, rows=50, pill="Role"), unsafe_allow_html=True)
-
-    with st.expander("Open Track Inventory", expanded=False):
-        columns = [
-            "display",
-            "artist",
-            "album",
-            "genre",
-            "plays",
-            "minutes",
-            "active_days",
-            "friction_rate",
-            "affinity_score",
-            "recommend_score",
-            "recommend_role",
-            "recommend_reason",
-            "recommender_ready",
-        ]
-
-        table = candidates[columns].rename(
-            columns={
-                "recommend_score": "average_share",
-                "recommend_role": "candidate_class",
-                "recommend_reason": "ready_reason",
-            }
-        )
-
-        st.markdown(display_table(table, rows=100, pill="Role"), unsafe_allow_html=True)
-
-def show_scanner(data: pd.DataFrame) -> None:
-    page_head(
-        "Scanner",
-        "Use this page to inspect one artist, track, genre, or source in detail. The scanner explains where that object appears, how often it shows up, and whether it carries repeat, discovery, or skip signals.",
-    )
-
-    scan_type = st.selectbox("Scan type", ["Artist", "Track", "Genre", "Source"])
-
-    if scan_type == "Artist":
-        options = sorted(data["artist"].dropna().unique().tolist())
-        choice = st.selectbox("Choose artist", options)
-        detail = data[data["artist"].eq(choice)]
-
-    elif scan_type == "Track":
-        options = sorted(data["display"].dropna().unique().tolist())
-        choice = st.selectbox("Choose track", options)
-        detail = data[data["display"].eq(choice)]
-
-    elif scan_type == "Genre":
-        options = sorted(data["genre"].dropna().unique().tolist())
-        choice = st.selectbox("Choose genre", options)
-        detail = data[data["genre"].eq(choice)]
-
+def score_genre_affinity(text: str, lexicon: dict, available_genres=None) -> tuple[dict, bool]:
+    text = (text or "").lower()
+    affinity: dict = {}
+    matched_any = False
+    for mood in lexicon.values():
+        hits = sum(1 for kw in mood["keywords"]
+                   if re.search(rf"\b{re.escape(kw)}(?:s|es|ed|ing|y)?\b", text))
+        if hits:
+            matched_any = True
+            for g in mood["genres"]:
+                targets = _match_genres(g, available_genres) if available_genres is not None else [g]
+                for t in targets:
+                    affinity[t] = affinity.get(t, 0) + hits
+    return affinity, matched_any
+
+
+def fuzzy_genre_fallback(text: str, tracks: pd.DataFrame) -> dict:
+    """Match the text straight against genre names (whole words only)."""
+    text_norm = _norm_text(text)
+    affinity: dict = {}
+    if not text_norm:
+        return affinity
+    padded = f" {text_norm} "
+    words = set(text_norm.split())
+    for genre in tracks["genre"].dropna().unique():
+        for part in str(genre).split("/"):
+            p = _norm_text(part)
+            if not p:
+                continue
+            if f" {p} " in padded or p.replace(" ", "") in words:
+                affinity[genre] = affinity.get(genre, 0) + 3
+                break
+    return affinity
+
+
+def recommend_tracks(tracks: pd.DataFrame, request_text: str, selected_genres: list, limit: int = 7):
+    pool = tracks.copy()
+    lexicon = load_mood_lexicon()
+    available = pool["genre"].dropna().unique()
+    affinity, matched_any = score_genre_affinity(request_text, lexicon, available)
+    for g, v in fuzzy_genre_fallback(request_text, pool).items():
+        affinity[g] = affinity.get(g, 0) + v
+
+    if selected_genres:
+        narrowed = pool[pool["genre"].isin(selected_genres)]
+        if not narrowed.empty:
+            pool = narrowed.copy()
+
+    if "recommend_score" not in pool.columns:
+        full_rate = pd.to_numeric(pool.get("full_rate", 0), errors="coerce").fillna(0)
+        friction = pd.to_numeric(pool.get("friction_rate", 0), errors="coerce").fillna(0)
+        plays_rank = pd.to_numeric(pool["plays"], errors="coerce").fillna(0).rank(pct=True)
+        pool = pool.assign(recommend_score=(0.6 * (0.6 * full_rate + 0.4 * (1 - friction)) + 0.4 * plays_rank).clip(0, 1))
     else:
-        options = sorted(data["source_label"].dropna().unique().tolist())
-        choice = st.selectbox("Choose source", options)
-        detail = data[data["source_label"].eq(choice)]
+        pool = pool.copy()
 
-    if detail.empty:
-        st.warning("No plays match this scan.")
-        return
+    text_lower = (request_text or "").lower().strip()
+    text_norm = _norm_text(text_lower)
+    padded = f" {text_norm} "
+    tokens = {w for w in text_norm.split() if len(w) >= 4 and w not in _STOPWORDS}
 
-    friction = detail["friction"].mean()
-    full = detail["full_play"].mean()
-    active_days = detail["date"].nunique()
+    def text_boost(row) -> float:
+        boost = 0.0
+        if not text_norm:
+            return boost
+        artist = _norm_text(str(row.get("artist", "")))
+        track = _norm_text(str(row.get("track", "")))
+        if artist and f" {artist} " in padded:
+            boost += 0.5
+        if len(track) >= 3 and f" {track} " in padded:
+            boost += 0.5
+        if boost == 0 and tokens and tokens & set(f"{artist} {track}".split()):
+            boost = 0.25
+        return boost
 
-    if friction >= 0.60:
-        note = f"{choice} appears in the current filter with a strong skip signal. That means the listens may be context-dependent, incomplete, or not fully retained."
-    elif full >= 0.60:
-        note = f"{choice} appears with a strong completion signal. That means it tends to hold attention when it shows up."
-    elif active_days >= 5:
-        note = f"{choice} appears across multiple active days, so it is part of a recurring listening pattern."
+    pool["genre_affinity"] = pool["genre"].map(lambda g: affinity.get(g, 0))
+    max_affinity = max(affinity.values()) if affinity else 0
+    pool["genre_affinity_norm"] = (pool["genre_affinity"] / max_affinity) if max_affinity else 0.0
+    pool["text_boost"] = pool.apply(text_boost, axis=1)
+
+    has_prompt_signal = bool(text_lower) and (max_affinity > 0 or pool["text_boost"].max() > 0)
+    prompt_weight = 0.55 if has_prompt_signal else 0.0
+
+    pool["final_score"] = (
+        prompt_weight * (0.7 * pool["genre_affinity_norm"] + 0.3 * (pool["text_boost"] > 0).astype(float))
+        + (1 - prompt_weight) * pool["recommend_score"]
+        + pool["text_boost"]
+    ).clip(lower=0)
+
+    pool = pool.sort_values(["final_score", "plays"], ascending=False).drop_duplicates(["track", "artist"])
+    return pool.head(limit), has_prompt_signal
+
+
+# ----------------------------------------------------------------------------
+# Selection helpers (used as button callbacks so state updates before the rerun)
+# ----------------------------------------------------------------------------
+def _toggle_selection(item: str) -> None:
+    sel = st.session_state.setdefault("my_selection", [])
+    if item in sel:
+        sel.remove(item)
     else:
-        note = f"{choice} is a smaller signal in the current filter, but it can still show where a specific part of the listening history lives."
-
-    st.markdown(
-        f"""
-        <div class="identity-card">
-            <div class="identity-title">{html.escape(choice)}</div>
-            <p class="identity-text">{html.escape(note)}</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    columns = st.columns(4)
-    metrics = [
-        ("Plays", f"{len(detail):,}", min(len(detail) / max(len(data), 1), 1), color["cyan"], "Count.", "How often this appears."),
-        ("Minutes", f"{detail['minutes'].sum():,.1f}", min(detail["minutes"].sum() / max(data["minutes"].sum(), 1), 1), color["yellow"], "Time.", "How much listening time this holds."),
-        ("Active Days", f"{active_days:,}", min(active_days / max(data["date"].nunique(), 1), 1), color["mint"], "Days.", "How many days this appears."),
-        ("Skip Rate", rate_text(friction), friction, color["coral"], "Friction.", "How often this breaks down."),
-    ]
-
-    for column, metric in zip(columns, metrics):
-        with column:
-            show_chart(ring_chart(*metric))
-
-    paragraph(
-        "This chart shows when the selected object appeared. If there is only one visible play, it shows one clear event instead of an empty timeline."
-    )
-
-    days = make_days(detail)
-
-    if len(days) <= 1:
-        chart = go.Figure()
-        label = detail["played_at"].map(lambda value: date_time(value, short=False))
-
-        chart.add_trace(
-            go.Scatter(
-                x=detail["played_at"],
-                y=[1] * len(detail),
-                mode="markers+text",
-                marker={
-                    "size": 34,
-                    "color": color["cyan"],
-                    "opacity": 0.74,
-                    "line": {"color": color["line"], "width": 1.2},
-                },
-                text=label,
-                textposition="top center",
-                textfont={"size": 11, "color": color["text"], "family": "Nunito"},
-                hovertemplate="Event Marker<br>%{text}<extra></extra>",
-                showlegend=False,
-            )
-        )
-
-        chart.update_layout(title="Event Marker")
-        chart.update_xaxes(title_text="Time", tickformat="%b %-d · %-I %p")
-        chart.update_yaxes(visible=False)
-        show_chart(base_chart(chart, 340))
-    else:
-        show_chart(wave_chart(days, "Event Marker"))
-
-    paragraph("This chart shows the top tracks inside the current scan. Larger nodes mean more plays.")
-
-    tracks = make_tracks(detail)
-    show_chart(node_strip(tracks))
-
-    with st.expander("Open Scan Details", expanded=False):
-        source = (
-            detail.groupby("source_label")
-            .agg(
-                plays=("track_key", "size"),
-                minutes=("minutes", "sum"),
-                full_rate=("full_play", "mean"),
-                friction_rate=("friction", "mean"),
-            )
-            .reset_index()
-            .sort_values("plays", ascending=False)
-        )
-        st.markdown(display_table(source, rows=60), unsafe_allow_html=True)
+        sel.append(item)
 
 
+def _clear_selection() -> None:
+    st.session_state["my_selection"] = []
+
+
+# ----------------------------------------------------------------------------
+# Recommendation tab UI
+# ----------------------------------------------------------------------------
+def section_recommend(data: dict) -> None:
+    tracks = data["tracks"]
+
+    with st.container(key="player"):
+        left, right = st.columns([0.45, 0.55])
+
+        with left:
+            st.subheader("What do you want to hear?")
+            st.caption("You can search by artist, genre, or something else.")
+            request_text = st.text_area("Your request", placeholder="a rainy night, a little dramatic",
+                                         key="rec_request", height=90, label_visibility="collapsed")
+
+            st.caption("Pick by Mood")
+            quick = st.pills("Quick moods", QUICK_MOODS,
+                              selection_mode="multi", key="quick_moods", label_visibility="collapsed")
+            quick_text = " ".join(q.lower() for q in (quick or []))
+            combined_text = f"{request_text or ''} {quick_text}".strip()
+
+            genre_pool = set(tracks["genre"].dropna().unique())
+            if "genre" in data["genres"].columns:
+                genre_pool |= set(data["genres"]["genre"].dropna().unique())
+            genre_options = sorted(g for g in genre_pool if g != "Unknown Genre")
+            st.caption("Narrow the Genre")
+            with st.container(height=230):
+                chosen_genres = st.pills("Genres", genre_options, selection_mode="multi",
+                                          key="rec_genres", label_visibility="collapsed")
+
+            go = st.button("Get Recommendations ↗", type="primary", use_container_width=True)
+
+        # Recompute on button click, on first load, or whenever the inputs change
+        signature = (combined_text, tuple(sorted(chosen_genres or [])))
+        if go or "rec_results" not in st.session_state or st.session_state.get("rec_signature") != signature:
+            results, has_signal = recommend_tracks(tracks, combined_text, chosen_genres or [], limit=7)
+            st.session_state["rec_results"] = results
+            st.session_state["rec_request_display"] = combined_text
+            st.session_state["rec_has_signal"] = has_signal
+            st.session_state["rec_signature"] = signature
+
+        results = st.session_state.get("rec_results", pd.DataFrame())
+        request_display = st.session_state.get("rec_request_display", "")
+        selection = st.session_state.setdefault("my_selection", [])
+
+        with right:
+            with st.container(key="player_screen"):
+                st.subheader("Recommended Tracks")
+                if request_display:
+                    st.caption(f"Request: {request_display}")
+                    if not st.session_state.get("rec_has_signal", False):
+                        st.caption("No mood, genre, or artist match, so these are my most-listened favorites.")
+
+                for i, row in enumerate(results.itertuples(), start=1):
+                    item = f"{row.track} — {row.artist}"
+                    in_sel = item in selection
+                    c1, c2, c3 = st.columns([0.12, 0.76, 0.12])
+                    with c1:
+                        color = PALETTE[(i - 1) % len(PALETTE)]
+                        st.markdown(f'<div class="rank-chip" style="background:{color}">{i:02d}</div>', unsafe_allow_html=True)
+                    with c2:
+                        st.markdown(f"**{row.track}**<br><span class='muted'>{row.artist} · {row.genre}</span>",
+                                    unsafe_allow_html=True)
+                    with c3:
+                        st.button("✓" if in_sel else "+", key=f"add_{i}_{row.track}_{row.artist}",
+                                  help="Remove from selection" if in_sel else "Add to selection",
+                                  on_click=_toggle_selection, args=(item,))
+
+                if st.button("+ Add a track to your selection", key="manual_add_toggle"):
+                    st.session_state["show_manual_add"] = not st.session_state.get("show_manual_add", False)
+
+                if st.session_state.get("show_manual_add"):
+                    manual_query = st.text_input("Search your library", key="manual_search")
+                    if manual_query:
+                        matches = tracks[
+                            tracks["track"].str.contains(manual_query, case=False, na=False)
+                            | tracks["artist"].str.contains(manual_query, case=False, na=False)
+                        ].drop_duplicates(["track", "artist"]).head(5)
+                        for row in matches.itertuples():
+                            item = f"{row.track} — {row.artist}"
+                            st.button(f"{'Remove' if item in selection else 'Add'} {item}",
+                                      key=f"manual_{row.track}_{row.artist}",
+                                      on_click=_toggle_selection, args=(item,))
+
+                if selection:
+                    with st.expander(f"Your selection ({len(selection)})", expanded=True):
+                        for i, item in enumerate(list(selection)):
+                            c1, c2 = st.columns([0.86, 0.14])
+                            with c1:
+                                st.write("• " + item)
+                            with c2:
+                                st.button("✕", key=f"remove_{i}_{item}", help="Remove from selection",
+                                          on_click=_toggle_selection, args=(item,))
+                        st.button("Clear selection", key="clear_selection", on_click=_clear_selection)
+
+
+# ----------------------------------------------------------------------------
+# Main
+# ----------------------------------------------------------------------------
 def main() -> None:
-    page_style()
-    hero()
+    style()
+    data = load_data()
+    hero(data)
+    pink_divider()
 
-    try:
-        tables = load_data()
-    except FileNotFoundError as error:
-        st.error(str(error))
-        st.stop()
+    tab1, tab2 = st.tabs(["01. MY MUSIC BREAKDOWN", "02. GET A RECOMMENDATION"])
 
-    data = filter_data(tables)
+    with tab1:
+        left, right = st.columns([0.36, 0.64], gap="medium")
 
-    if data.empty:
-        st.warning("No plays match the current filters.")
-        st.stop()
+        with left:
+            with st.container(key="panel_overview"):
+                section_overview(data)
+            with st.container(key="panel_genres"):
+                section_genres(data)
 
-    map_key()
+        with right:
+            with st.container(key="panel_artists"):
+                section_artists(data)
+            with st.container(key="panel_repeat"):
+                section_repeat(data)
+            with st.container(key="panel_daily"):
+                section_daily(data)
+            with st.container(key="panel_heatmap"):
+                section_heatmap(data)
 
-    about, listening, taste, discovery, skips, sources, recommendations, scanner = st.tabs(
-        [
-            "About Me",
-            "Listening",
-            "Taste",
-            "Discovery",
-            "Skips",
-            "Sources",
-            "Recommendations",
-            "Scanner",
-        ]
-    )
-
-    with about:
-        show_about(data, tables)
-
-    with listening:
-        show_listening(data, tables)
-
-    with taste:
-        show_taste(data)
-
-    with discovery:
-        show_discovery(data, tables)
-
-    with skips:
-        show_skips(data)
-
-    with sources:
-        show_sources(data)
-
-    with recommendations:
-        show_recommendations(tables)
-
-    with scanner:
-        show_scanner(data)
+    with tab2:
+        section_recommend(data)
 
 
 if __name__ == "__main__":
