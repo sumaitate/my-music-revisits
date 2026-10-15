@@ -1,0 +1,7 @@
+entity,left,right,top10_overlap,union_size,spearman
+artist,events,valid_plays,10,10,0.705170430668875
+artist,events,minutes,9,11,0.48181818181818187
+artist,valid_plays,minutes,9,11,0.7881569423102951
+track,events,valid_plays,9,11,0.7334870966009104
+track,events,minutes,8,12,0.38879218992778225
+track,valid_plays,minutes,9,11,0.7272727272727273

@@ -1,0 +1,215 @@
+{
+  "deleted_paths": [
+    "data/processed/recommend_sample.parquet",
+    "models/recommend_matrix.npz",
+    "models/recommend_model.joblib",
+    "src/__init__.py",
+    "src/data/__init__.py",
+    "src/features/__init__.py",
+    "src/recommender/__init__.py",
+    "src/utils/__init__.py",
+    "src/visualization/__init__.py"
+  ],
+  "files": [
+    {
+      "path": "src/music_analytics/build.py",
+      "sha256": "fdd8c9825de7393e1f22a2050fd026d3ccd0f6344a8839c2cba661c1be3bb7ea"
+    },
+    {
+      "path": "src/music_analytics/config.py",
+      "sha256": "4c42d26795808dd67557ea0dfb268ba55071ca931e39b6c19ddfc1119751f4ab"
+    },
+    {
+      "path": "src/music_analytics/evaluate.py",
+      "sha256": "3bb8ded52da76a2f6f157d06085036068c65354151d55bbcc5639bf1e5ef1c54"
+    },
+    {
+      "path": "src/music_analytics/paths.py",
+      "sha256": "deaffe234c4a21e7f2383a289528de781a8bb4d347f4abb09b656551f3f00fb9"
+    },
+    {
+      "path": "src/music_analytics/read.py",
+      "sha256": "7bdd5bb3d2b47107665eaa01d274c3c54ee5b240de2b285bc6d8ee54a7c3cf2e"
+    },
+    {
+      "path": "src/music_analytics/recommend.py",
+      "sha256": "487c2acd6542b33e70c3dd5539e8ebf5fac11a9240a7734c7fc2285387f7a4bc"
+    },
+    {
+      "path": "src/music_analytics/scoring.py",
+      "sha256": "dba142563210772184abd44bc7140daee1954bffa0c6e06f9e57ac7e75c7e526"
+    },
+    {
+      "path": "src/music_analytics/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "src/music_analytics/dashboard/artists.py",
+      "sha256": "5faf1de6f14c3d42ba7d8aa02779a776d55f5ff55eb458fd42d9d84869733a97"
+    },
+    {
+      "path": "src/music_analytics/dashboard/common.py",
+      "sha256": "31dd5f8a4e9aa29c1df3131420d3a045470a4be37aec5a932fd5ba22bfa2a562"
+    },
+    {
+      "path": "src/music_analytics/dashboard/daily.py",
+      "sha256": "122279cbe18493d32d5a83e506805a2905f47906df72847f546f0aaf50145d6b"
+    },
+    {
+      "path": "src/music_analytics/dashboard/data.py",
+      "sha256": "7b4db5d3cfb94ed0a7c7a1c945ea1d8371b75572b466ff8df5d7bfe073c06fa8"
+    },
+    {
+      "path": "src/music_analytics/dashboard/genres.py",
+      "sha256": "fc21607ca42680fffb5772729b28c58ae9b3d3c6a7c9b7c925f9ea51a809403e"
+    },
+    {
+      "path": "src/music_analytics/dashboard/heatmap.py",
+      "sha256": "f0f9a9558540fcddb54632e44e9c14566e8a93729aab0203a25f148a06fe303d"
+    },
+    {
+      "path": "src/music_analytics/dashboard/overview.py",
+      "sha256": "3dad23e39db99eb2f141ad485100edbd9c691890b9c6773c19e5d2289b1b7908"
+    },
+    {
+      "path": "src/music_analytics/dashboard/recommendations.py",
+      "sha256": "6c235f56060227be6cc9bf80ccacf3c9922b3a4b3ba6dd8d50606a68cef0c438"
+    },
+    {
+      "path": "src/music_analytics/dashboard/repeat.py",
+      "sha256": "06418ae26a59403465336cc0e5ea38cae7642dbdc7ab671f7c3f7c317923cda8"
+    },
+    {
+      "path": "src/music_analytics/dashboard/style.css",
+      "sha256": "3bf2bf150b126de7349f3b32cb008aef70a4c8fb4ca0ccb8591af61662d5fc08"
+    },
+    {
+      "path": "src/music_analytics/dashboard/theme.py",
+      "sha256": "61fbe2a45372efb2df1e43edd9983afe76990255cee43fd5ef2849f8d00c2692"
+    },
+    {
+      "path": "src/music_analytics/dashboard/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "scripts/audit_data.py",
+      "sha256": "354274fff1053a01124635d270116339c2d280ff1df6efa83e2ab981ecbf41ee"
+    },
+    {
+      "path": "scripts/check_rankings.py",
+      "sha256": "02a4657eaa85eb09423b128f3cc7f00a09f4ec00655b7086b0a8d7c4faed90ac"
+    },
+    {
+      "path": "scripts/evaluate_recommender.py",
+      "sha256": "095f3dd0fb30b0dd423b20eb42914cc219b028323f4ba2c9802e155c0b6d27dc"
+    },
+    {
+      "path": "scripts/make_data.py",
+      "sha256": "4d8b90aaca66c7aa85a76179fa59e72467ce8c53eb2f16279a22e63aea1f9e27"
+    },
+    {
+      "path": "scripts/make_eda.py",
+      "sha256": "f7bfe4edc3e345a4a4ef596e47a65a35dae44371a0446294926098336f65e3e2"
+    },
+    {
+      "path": "scripts/make_recommendations.py",
+      "sha256": "3e42c7de221dede581117f097c341cb1bcfc9b976a80126de1a26fe369cf4251"
+    },
+    {
+      "path": "scripts/show_recommendations.py",
+      "sha256": "b857ea09f5bc2e7c50aa91f36b6225601fc44ba4271e450f810c6a8e13becde5"
+    },
+    {
+      "path": "app/dashboard.py",
+      "sha256": "90645f36c245aa3a0a9cb142e59c538cfa66236075cb7bb3e7d51841cb45529a"
+    },
+    {
+      "path": "tests/test_dashboard.py",
+      "sha256": "905dbb53c5eb7ba02df26c3f76936f92f146c350d2f6dc159093a8a8967898ec"
+    },
+    {
+      "path": "tests/test_pipeline.py",
+      "sha256": "f615744955eebf875d7360b76a9486e73c1bac55cc4cb3bcc08caad47f994acb"
+    },
+    {
+      "path": "README.md",
+      "sha256": "07a8db0739b8c6f1c5914fa0d11929604e3180bf95734a63d99ea70e76b717d9"
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "7b4be1794d3d82e4a28ab7643adcb084192e07dabc2d0e161dffa967037cb461"
+    },
+    {
+      "path": "requirements.txt",
+      "sha256": "4d2f34aedbde6d3a87594413dd540e1f65f8a3260f1d9160a2fa0fd298568620"
+    },
+    {
+      "path": "notebooks/01_exploratory_data_analysis.ipynb",
+      "sha256": "9becbe028482a82f96c1d5562a5e5c1fb7cfde82826f87ce5485bb8c12a45832"
+    },
+    {
+      "path": "reports/CHANGELOG.md",
+      "sha256": "a6f025cae16ee03339dc82c08d9383f0f4dec18c1a13dd768d9af076ac404cc9"
+    },
+    {
+      "path": "reports/phase0_usage_map.md",
+      "sha256": "5c810a5bb2eb67daf67c4445b44ed01c3e92ee191b54f60d808b0d57daa49866"
+    },
+    {
+      "path": "reports/before_after.md",
+      "sha256": "52757c59fb9092cdb6c19b6a2643971798198a191c16c6dfc0223ad69918421d"
+    },
+    {
+      "path": "reports/before_after.csv",
+      "sha256": "db22761db95ef0cbed279740dd85934826201f441ae7cced6e93ee4ee38f5309"
+    },
+    {
+      "path": "reports/baseline_before_refactor.json",
+      "sha256": "f95860c99dc07d649aa36cd0050780dfe614554aec5dfb1d293b37f373c2f36e"
+    },
+    {
+      "path": "reports/baseline_after_refactor.json",
+      "sha256": "5f0d5159082b914255c288dd7fd591b13ffb22efd895ca742e8009215925a59e"
+    },
+    {
+      "path": "reports/evaluation.md",
+      "sha256": "cbdd5d3822a8371a88c7b7927aac8d6ab1ef174e062eeefb1667bf661fc9f185"
+    },
+    {
+      "path": "reports/evaluation.csv",
+      "sha256": "32ab7fd34998abc46b7a550afe599b7a797a5856d459522cdb46bddd9b1ee394"
+    },
+    {
+      "path": "reports/evaluation_summary.csv",
+      "sha256": "303641a86669e6c2236eaaa20a7ba1f8e0b2bcd49003a8cfdb7d3afa3272db52"
+    },
+    {
+      "path": "reports/evaluation_tuning.csv",
+      "sha256": "f41b6bbd3a0688dd191bbea6aa91fb6c20a1694f31d7308afcc1dd96570dd54c"
+    },
+    {
+      "path": "reports/evaluation_windows.csv",
+      "sha256": "cba567024326dd4253aab641c93ebfb06787e06f19607a02c24e43e673ba6a2f"
+    },
+    {
+      "path": "reports/evaluation_settings.json",
+      "sha256": "867cafa0b2064e671e79fa1f576266dcf3ab8afc100d27606a8ca0e691ed71b4"
+    },
+    {
+      "path": "reports/ranking_comparison.md",
+      "sha256": "480c91ed074cc421cd891df588e5281aac415aa7cdb30a26c25c7d66dbf4938a"
+    },
+    {
+      "path": "reports/ranking_comparison.csv",
+      "sha256": "d3b6361767f62dbadb77482eeec406fd7e9b2b1f48ea325023fbc1c385fd99b2"
+    },
+    {
+      "path": "reports/ranking_top10.csv",
+      "sha256": "b233be0a9909161faec5e77edff4cd7871e3ef0c810d426777766d30c102326b"
+    },
+    {
+      "path": "reports/newly_parsed_events.csv",
+      "sha256": "1c0880c77d1c42564078e398ef3da26878eac1bf24ad974cec9a36374d9ebc20"
+    }
+  ]
+}

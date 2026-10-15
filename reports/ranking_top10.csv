@@ -1,0 +1,61 @@
+entity,metric,rank,key,label,value
+artist,events,1,ATEEZ,ATEEZ,810.0
+artist,events,2,Unknown Artist,Unknown Artist,620.0
+artist,events,3,Spiritual Concepts,Spiritual Concepts,381.0
+artist,events,4,Yves,Yves,341.0
+artist,events,5,XG,XG,256.0
+artist,events,6,IVE,IVE,223.0
+artist,events,7,The Weeknd,The Weeknd,210.0
+artist,events,8,ITZY,ITZY,201.0
+artist,events,9,aespa,aespa,196.0
+artist,events,10,ILLIT,ILLIT,155.0
+artist,valid_plays,1,ATEEZ,ATEEZ,461.0
+artist,valid_plays,2,Yves,Yves,169.0
+artist,valid_plays,3,XG,XG,156.0
+artist,valid_plays,4,Spiritual Concepts,Spiritual Concepts,134.0
+artist,valid_plays,5,Unknown Artist,Unknown Artist,123.0
+artist,valid_plays,6,ITZY,ITZY,113.0
+artist,valid_plays,7,aespa,aespa,113.0
+artist,valid_plays,8,ILLIT,ILLIT,108.0
+artist,valid_plays,9,IVE,IVE,92.0
+artist,valid_plays,10,The Weeknd,The Weeknd,84.0
+artist,minutes,1,ATEEZ,ATEEZ,1330.0456833333333
+artist,minutes,2,Yves,Yves,447.7795
+artist,minutes,3,XG,XG,437.98451666666665
+artist,minutes,4,Unknown Artist,Unknown Artist,319.6703166666667
+artist,minutes,5,aespa,aespa,309.17758333333336
+artist,minutes,6,ITZY,ITZY,306.6512833333333
+artist,minutes,7,ILLIT,ILLIT,248.22355
+artist,minutes,8,IVE,IVE,243.68053333333333
+artist,minutes,9,THE BOYZ,THE BOYZ,217.67735
+artist,minutes,10,Spiritual Concepts,Spiritual Concepts,187.7722
+track,events,1,apple:1628702191,Harp of Dreams — Spiritual Concepts,283.0
+track,events,2,apple:1867153031,NASA — ATEEZ,161.0
+track,events,3,apple:1834586995,GALA — XG,102.0
+track,events,4,apple:1851676322,PS118 — JURIN ASAYA & Rapsody,101.0
+track,events,5,apple:1628702192,Mindfulness — Spiritual Concepts,94.0
+track,events,6,apple:1363311375,Privilege — The Weeknd,88.0
+track,events,7,apple:1817427558,little monster — ILLIT,88.0
+track,events,8,apple:1846236958,8-BIT HEART — ITZY,80.0
+track,events,9,apple:1843833521,Ex Machina — Yves,76.0
+track,events,10,apple:1843833569,Do you feel it like i touch — Yves,73.0
+track,valid_plays,1,apple:1867153031,NASA — ATEEZ,122.0
+track,valid_plays,2,apple:1628702191,Harp of Dreams — Spiritual Concepts,96.0
+track,valid_plays,3,apple:1834586995,GALA — XG,75.0
+track,valid_plays,4,apple:1817427558,little monster — ILLIT,66.0
+track,valid_plays,5,apple:1851676322,PS118 — JURIN ASAYA & Rapsody,60.0
+track,valid_plays,6,apple:1846236958,8-BIT HEART — ITZY,55.0
+track,valid_plays,7,apple:1363311375,Privilege — The Weeknd,53.0
+track,valid_plays,8,apple:1843833569,Do you feel it like i touch — Yves,50.0
+track,valid_plays,9,apple:1497852253,REVEAL — THE BOYZ,46.0
+track,valid_plays,10,apple:1843833521,Ex Machina — Yves,45.0
+track,minutes,1,apple:1867153031,NASA — ATEEZ,333.82815
+track,minutes,2,apple:1834586995,GALA — XG,228.01955
+track,minutes,3,apple:1846236958,8-BIT HEART — ITZY,158.5641
+track,minutes,4,apple:1817427558,little monster — ILLIT,151.34805
+track,minutes,5,apple:1851676322,PS118 — JURIN ASAYA & Rapsody,149.93748333333332
+track,minutes,6,apple:1843833569,Do you feel it like i touch — Yves,148.57616666666667
+track,minutes,7,apple:1628702191,Harp of Dreams — Spiritual Concepts,135.37598333333332
+track,minutes,8,apple:1497852253,REVEAL — THE BOYZ,134.89243333333334
+track,minutes,9,apple:1555239750,Take Me Home — ATEEZ,128.35058333333333
+track,minutes,10,apple:1843833521,Ex Machina — Yves,120.96803333333334

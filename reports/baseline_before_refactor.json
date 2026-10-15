@@ -1,0 +1,35 @@
+{
+  "events": 10454,
+  "valid_plays_30s": 3743,
+  "minutes": 9900.943433333334,
+  "listening_days_UTC": 143,
+  "longest_day_UTC": "2026-01-01 00:00:00",
+  "longest_day_minutes": 331.87893333333335,
+  "peak_fixed_EST": "Wednesday 20-24 EST",
+  "top5_artists_events": [
+    {
+      "artist": "ATEEZ",
+      "plays": 826
+    },
+    {
+      "artist": "Spiritual Concepts",
+      "plays": 381
+    },
+    {
+      "artist": "Yves",
+      "plays": 344
+    },
+    {
+      "artist": "XG",
+      "plays": 256
+    },
+    {
+      "artist": "IVE",
+      "plays": 223
+    }
+  ],
+  "unknown_genre_event_share": 0.1506600344365793,
+  "unknown_genre_valid_play_share": 0.08121827411167512,
+  "match_tier_rates": "Not recorded by current builder; not inferred from final metadata",
+  "unknown_duration_share": 9.565716472163765e-05
+}

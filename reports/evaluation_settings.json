@@ -1,0 +1,36 @@
+{
+  "cutoffs": [
+    [
+      "2025-12-20",
+      "tuning"
+    ],
+    [
+      "2025-12-27",
+      "tuning"
+    ],
+    [
+      "2026-01-31",
+      "held_out"
+    ],
+    [
+      "2026-02-07",
+      "held_out"
+    ]
+  ],
+  "window_days": 28,
+  "seed": 42,
+  "score_weights": {
+    "affinity": 0.5,
+    "completion": 0.5,
+    "exposure": 0.0
+  },
+  "tuning_objective": "mean NDCG@25 on tuning cutoffs",
+  "use_snapshot_features": false,
+  "default_score_weights": {
+    "affinity": 0.4,
+    "completion": 0.2,
+    "activity": 0.15,
+    "playlist": 0.15,
+    "exposure": 0.1
+  }
+}

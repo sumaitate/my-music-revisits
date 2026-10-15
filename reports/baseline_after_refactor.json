@@ -1,0 +1,40 @@
+{
+  "events": 10464,
+  "valid_plays_30s": 3747,
+  "minutes": 9909.943166666668,
+  "listening_days_ET": 143,
+  "longest_day_ET": "2025-12-31",
+  "longest_day_minutes": 225.23836666666668,
+  "peak_ET": "Wed 20-24 ET",
+  "top5_artists_valid_plays": [
+    {
+      "artist": "ATEEZ",
+      "valid_plays": 461
+    },
+    {
+      "artist": "Yves",
+      "valid_plays": 169
+    },
+    {
+      "artist": "XG",
+      "valid_plays": 156
+    },
+    {
+      "artist": "Spiritual Concepts",
+      "valid_plays": 134
+    },
+    {
+      "artist": "aespa",
+      "valid_plays": 113
+    }
+  ],
+  "unknown_genre_event_share": 0.15347859327217125,
+  "unknown_genre_valid_play_share": 0.07766212970376302,
+  "match_tier_rates": {
+    "exact title+album": 0.8254969418960245,
+    "daily title": 0.11410550458715596,
+    "unmatched": 0.059250764525993885,
+    "library title": 0.0011467889908256881
+  },
+  "unknown_duration_share": 9.556574923547401e-05
+}

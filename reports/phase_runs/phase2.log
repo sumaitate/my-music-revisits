@@ -1,0 +1,30 @@
+Processed data saved.
+library: 10,633 rows
+playlists: 144 rows
+playlist_tracks: 16,687 rows
+daily_tracks: 5,042 rows
+plays: 10,464 rows
+tracks: 3,000 rows
+artists: 990 rows
+albums: 1,858 rows
+genres: 69 rows
+days: 143 rows
+hours: 154 rows
+heatmap: 42 rows
+sources: 10 rows
+sessions: 448 rows
+features: 3,000 rows
+life: 3,000 rows
+profile: 11 rows
+EDA saved.
+Open reports/eda.md and reports/figures.
+Streamlit AppTest initial render: passed
+Recommendation layer saved.
+Tracks: 3,000
+Matrix: 3,000 rows x 14,806 columns
+Candidates: 3,000
+Recommendation pairs: 17,650
+Saved data/processed/recommend_candidates.parquet
+Saved data/processed/recommendations.parquet
+Saved data/processed/recommend_profile.parquet
+Saved models/recommend_settings.json

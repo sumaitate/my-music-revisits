@@ -1,0 +1,75 @@
+
+RUN audit_data
+Raw audit saved to data/interim/raw_audit.csv
+                             file    folder     kind  rows_sample
+            container_details.csv       csv      csv            5
+             container_origin.csv       csv      csv            5
+                    favorites.csv       csv      csv            5
+           feature_statistics.csv       csv      csv            5
+          music_play_activity.csv       csv      csv            5
+    play_history_daily_tracks.csv       csv      csv            5
+              play_statistics.csv       csv      csv            5
+           recent_impressions.csv       csv      csv            5
+   recently_played_containers.csv       csv      csv            5
+       recently_played_tracks.csv       csv      csv            5
+                  top_content.csv       csv      csv            5
+           track_play_history.csv       csv      csv            5
+  identifier_information.json.zip json_zips json_zip        15260
+        library_activity.json.zip json_zips json_zip         3842
+          library_albums.json.zip json_zips json_zip         5255
+         library_artists.json.zip json_zips json_zip         3109
+library_import_playlists.json.zip json_zips json_zip           88
+ library_import_sessions.json.zip json_zips json_zip            1
+   library_import_tracks.json.zip json_zips json_zip         9547
+       library_playlists.json.zip json_zips json_zip          144
+          library_tracks.json.zip json_zips json_zip        10738
+
+RUN make_data
+Processed data saved.
+library: 10,633 rows
+playlists: 144 rows
+playlist_tracks: 16,687 rows
+daily_tracks: 5,042 rows
+plays: 10,464 rows
+tracks: 3,000 rows
+artists: 990 rows
+albums: 1,858 rows
+genres: 69 rows
+days: 143 rows
+hours: 154 rows
+heatmap: 42 rows
+sources: 10 rows
+sessions: 448 rows
+features: 3,000 rows
+life: 3,000 rows
+profile: 11 rows
+
+RUN make_eda
+EDA saved.
+Open reports/eda.md and reports/figures.
+
+RUN make_recommendations
+Recommendation layer saved.
+Tracks: 3,000
+Matrix: 3,000 rows x 14,781 columns
+Candidates: 3,000
+Recommendation pairs: 10,556
+Saved data/processed/recommend_candidates.parquet
+Saved data/processed/recommendations.parquet
+Saved data/processed/recommend_profile.parquet
+Saved models/recommend_settings.json
+
+RUN check_rankings
+entity        left       right  top10_overlap  union_size  spearman
+artist      events valid_plays             10          10  0.705170
+artist      events     minutes              9          11  0.481818
+artist valid_plays     minutes              9          11  0.788157
+ track      events valid_plays              9          11  0.733487
+ track      events     minutes              8          12  0.388792
+ track valid_plays     minutes              9          11  0.727273
+
+RUN evaluate_recommender
+Evaluation saved to reports/evaluation.md and evaluation.csv
+Selected evaluation blend: {'affinity': 0.5, 'completion': 0.5, 'exposure': 0.0}
+
+ALL PIPELINE STAGES PASSED

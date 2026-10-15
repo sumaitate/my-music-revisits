@@ -1,9 +1,7 @@
-import sys
-from pathlib import Path
-
-sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
-
+from music_analytics.paths import make_paths
 from music_analytics.read import audit_data
+
+make_paths()
 
 audit = audit_data()
 

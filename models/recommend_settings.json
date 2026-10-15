@@ -1,8 +1,36 @@
 {
   "top": 15,
-  "tracks": 2962,
-  "matrix_rows": 2962,
-  "matrix_cols": 14789,
-  "candidate_rows": 2962,
-  "pair_rows": 17972
+  "tracks": 3000,
+  "matrix_rows": 3000,
+  "matrix_cols": 14781,
+  "candidate_rows": 3000,
+  "pair_rows": 10556,
+  "shrinkage_k": 5,
+  "block_weights": {
+    "text": 1.0,
+    "categorical": 0.85,
+    "behavior": 1.25
+  },
+  "category_cols": [
+    "artist",
+    "album",
+    "genre"
+  ],
+  "number_cols": [
+    "plays_log",
+    "minutes_log",
+    "days_log",
+    "playlist_log",
+    "smoothed_full_rate",
+    "smoothed_friction_rate"
+  ],
+  "score_weights": {
+    "affinity": 0.4,
+    "completion": 0.2,
+    "activity": 0.15,
+    "playlist": 0.15,
+    "exposure": 0.1
+  },
+  "rate_denominator": "plays (all listening events)",
+  "use_snapshot_features": true
 }

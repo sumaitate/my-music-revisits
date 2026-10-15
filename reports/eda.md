@@ -1,13 +1,9 @@
-# Sumi's Music Universe EDA
+# Sumaitat's Music Revisits EDA
 
 ## Overview
 
-The cleaned data contains 10,454 plays across 2,962 tracks, 995 artists, and 70 genres. The observed listening time is 9,900.9 minutes.
-
-## Listener Profile
-
-The computed listener profile is **Friction-Sensitive Listener**.
+The cleaned data contains 10,464 listening events (3,747 plays of at least 30 seconds) across 3,000 tracks, 990 artists, and 69 genres. The observed listening time is 9,909.9 minutes.
 
 ## Recommender Readiness
 
-The feature table has 1,393 tracks ready for release-two recommendation experiments.
+The feature table has 388 tracks ready for recommendation scoring.

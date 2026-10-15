@@ -3,6 +3,8 @@ import json
 import numpy as np
 import pandas as pd
 
+from music_analytics.config import TIMEZONE, WEEKDAYS, BUCKETS
+from music_analytics.scoring import smoothed_rate
 from music_analytics.paths import clean_path, work_path
 from music_analytics.read import as_day, as_time, audit_data, read_csv, read_zip, safe_rate, split_track, text_key
 
@@ -193,13 +195,6 @@ def make_daily(library: pd.DataFrame) -> pd.DataFrame:
     daily["date"] = as_day(get_col(data, "date_played", pd.Series(index=data.index)))
     daily["hour"] = pd.to_numeric(get_col(data, "hours", 0), errors="coerce").fillna(0).astype(int)
     daily["played_at"] = daily["date"] + pd.to_timedelta(daily["hour"], unit="h")
-    daily["play_milliseconds"] = pd.to_numeric(get_col(data, "play_duration_milliseconds", 0), errors="coerce").fillna(0)
-    daily["plays"] = pd.to_numeric(get_col(data, "play_count", 0), errors="coerce").fillna(0)
-    daily["skips"] = pd.to_numeric(get_col(data, "skip_count", 0), errors="coerce").fillna(0)
-    daily["source_type"] = get_col(data, "source_type", "").astype("string")
-    daily["end_reason"] = get_col(data, "end_reason_type", "").astype("string")
-    daily["ignore_recs"] = get_col(data, "ignore_for_recommendations", False).astype(bool)
-
     lookup = library[
         [
             "apple_id",
@@ -221,7 +216,13 @@ def make_daily(library: pd.DataFrame) -> pd.DataFrame:
         }
     )
 
-    daily = daily.merge(lookup, on="apple_id", how="left")
+    lookup = lookup.loc[lookup["apple_id"].notna() & lookup["apple_id"].ne("")]
+    lookup = lookup.drop_duplicates("apple_id")
+    daily["apple_id"] = daily["apple_id"].replace("", pd.NA)
+    before = len(daily)
+    daily = daily.merge(lookup, on="apple_id", how="left", validate="m:1")
+    assert len(daily) == before, "Daily metadata merge changed the row count"
+
 
     daily["track"] = daily["track_library"].combine_first(daily["track"])
     daily["artist"] = daily["artist_library"].combine_first(daily["artist"]).fillna("Unknown Artist")
@@ -238,15 +239,8 @@ def make_daily(library: pd.DataFrame) -> pd.DataFrame:
         daily["artist_name"] + "|" + daily["track_name"] + "|" + daily["album_name"],
     )
 
-    daily["minutes"] = daily["play_milliseconds"] / 60000
-    daily["skip_rate"] = safe_rate(daily["skips"], daily["plays"])
-
-    daily = daily.drop(
-        columns=["track_library", "artist_library", "album_library", "genre_library", "duration_library"],
-        errors="ignore",
-    )
-
-    return daily.reset_index(drop=True)
+    return daily[["track_name", "track_key", "artist", "album", "genre",
+                  "duration_milliseconds", "date", "played_at"]].reset_index(drop=True)
 
 
 def make_plays(library: pd.DataFrame, daily: pd.DataFrame) -> pd.DataFrame:
@@ -294,86 +288,44 @@ def make_plays(library: pd.DataFrame, daily: pd.DataFrame) -> pd.DataFrame:
     plays["track_name"] = key_text(plays["track"])
     plays["album_name"] = key_text(plays["album"])
 
-    exact = library.sort_values("library_plays", ascending=False).drop_duplicates(["track_name", "album_name"])
-    exact = exact[
-        [
-            "track_name",
-            "album_name",
-            "track_id",
-            "apple_id",
-            "track_key",
-            "artist",
-            "album",
-            "genre",
-            "duration_milliseconds",
-        ]
-    ].rename(
-        columns={
-            "track_id": "track_id_exact",
-            "apple_id": "apple_id_exact",
-            "track_key": "track_key_exact",
-            "artist": "artist_exact",
-            "album": "album_exact",
-            "genre": "genre_exact",
-            "duration_milliseconds": "duration_exact",
-        }
-    )
+    metadata = ["track_key", "artist", "album", "genre", "duration_milliseconds"]
+    exact = library.sort_values("track_key").drop_duplicates(["track_name", "album_name"])
+    exact = exact[["track_name", "album_name", "track_id", "apple_id", *metadata]]
+    daily_counts = daily.groupby("track_name")["artist"].nunique()
+    title_counts = library.groupby("track_name")["artist"].nunique()
+    daily_title = daily.sort_values("track_key").drop_duplicates("track_name")
+    title = library.sort_values("track_key").drop_duplicates("track_name")
+    lookups = [("exact", exact, ["track_name", "album_name"]),
+               ("daily", daily_title[["track_name", *metadata]], ["track_name"]),
+               ("title", title[["track_name", "track_id", "apple_id", *metadata]], ["track_name"])]
+    for tier, lookup, keys in lookups:
+        lookup = lookup.rename(columns={c: f"{c}_{tier}" for c in lookup.columns if c not in keys})
+        before = len(plays)
+        plays = plays.merge(lookup, on=keys, how="left", validate="m:1")
+        assert len(plays) == before, f"{tier} metadata merge changed the row count"
 
-    title = library.sort_values("library_plays", ascending=False).drop_duplicates("track_name")
-    title = title[
-        [
-            "track_name",
-            "track_id",
-            "apple_id",
-            "track_key",
-            "artist",
-            "album",
-            "genre",
-            "duration_milliseconds",
-        ]
-    ].rename(
-        columns={
-            "track_id": "track_id_title",
-            "apple_id": "apple_id_title",
-            "track_key": "track_key_title",
-            "artist": "artist_title",
-            "album": "album_title",
-            "genre": "genre_title",
-            "duration_milliseconds": "duration_title",
-        }
-    )
-
-    daily_title = daily.sort_values(["plays", "minutes"], ascending=[False, False]).drop_duplicates("track_name")
-    daily_title = daily_title[
-        [
-            "track_name",
-            "track_key",
-            "artist",
-            "album",
-            "genre",
-            "duration_milliseconds",
-        ]
-    ].rename(
-        columns={
-            "track_key": "track_key_daily",
-            "artist": "artist_daily",
-            "album": "album_daily",
-            "genre": "genre_daily",
-            "duration_milliseconds": "duration_daily",
-        }
-    )
-
-    plays = plays.merge(exact, on=["track_name", "album_name"], how="left")
-    plays = plays.merge(daily_title, on="track_name", how="left")
-    plays = plays.merge(title, on="track_name", how="left")
-
-    plays["artist"] = plays["artist_exact"].combine_first(plays["artist_daily"]).combine_first(plays["artist_title"]).fillna("Unknown Artist")
-    plays["album"] = plays["album"].where(plays["album"].notna() & plays["album"].astype(str).str.strip().ne(""))
-    plays["album"] = plays["album"].combine_first(plays["album_exact"]).combine_first(plays["album_daily"]).combine_first(plays["album_title"]).fillna("Unknown Album")
-    plays["genre"] = plays["genre_exact"].combine_first(plays["genre_daily"]).combine_first(plays["genre_title"]).fillna("Unknown Genre")
-    plays["track_id"] = plays["track_id_exact"].combine_first(plays["track_id_title"])
-    plays["apple_id"] = plays["apple_id_exact"].combine_first(plays["apple_id_title"])
-    plays["track_key"] = plays["track_key_exact"].combine_first(plays["track_key_daily"]).combine_first(plays["track_key_title"])
+    exact_hit = plays["artist_exact"].notna() & plays["artist_exact"].ne("Unknown Artist")
+    daily_ambiguous = ~exact_hit & plays["track_name"].map(daily_counts).gt(1)
+    daily_hit = ~exact_hit & ~daily_ambiguous & plays["artist_daily"].notna() & plays["artist_daily"].ne("Unknown Artist")
+    title_ambiguous = ~exact_hit & ~daily_hit & plays["track_name"].map(title_counts).gt(1)
+    title_hit = ~exact_hit & ~daily_hit & ~daily_ambiguous & ~title_ambiguous & plays["artist_title"].notna() & plays["artist_title"].ne("Unknown Artist")
+    plays["ambiguous_title"] = daily_ambiguous | title_ambiguous
+    plays["match_tier"] = np.select([exact_hit, daily_hit, title_hit],
+                                    ["exact title+album", "daily title", "library title"], default="unmatched")
+    # Resolve metadata from a single accepted row, avoiding mixed artist/genre identities.
+    for field in ["artist", "genre", "track_key", "track_id", "apple_id"]:
+        result = pd.Series(pd.NA, index=plays.index, dtype="string")
+        for tier, hit in [("exact", exact_hit), ("daily", daily_hit), ("title", title_hit)]:
+            col = f"{field}_{tier}"
+            if col in plays:
+                result.loc[hit] = plays.loc[hit, col].astype("string")
+        plays[field] = result
+    plays["artist"] = plays["artist"].fillna("Unknown Artist")
+    plays["genre"] = plays["genre"].fillna("Unknown Genre")
+    raw_album = plays["album"].replace("", pd.NA)
+    for tier, hit in [("exact", exact_hit), ("daily", daily_hit), ("title", title_hit)]:
+        raw_album = raw_album.mask(hit & raw_album.isna(), plays[f"album_{tier}"])
+    plays["album"] = raw_album.fillna("Unknown Album")
 
     plays["artist_name"] = key_text(plays["artist"])
     plays["album_name"] = key_text(plays["album"])
@@ -390,8 +342,10 @@ def make_plays(library: pd.DataFrame, daily: pd.DataFrame) -> pd.DataFrame:
     plays["source_role"] = plays["source_label"].map(source_role)
 
     plays["minutes"] = plays["play_milliseconds"] / 60000
-    plays["play_share"] = safe_rate(plays["play_milliseconds"], plays["duration_milliseconds"]).clip(0, 1.5)
+    plays["duration_known"] = plays["duration_milliseconds"].gt(0)
+    plays["play_share"] = (plays["play_milliseconds"] / plays["duration_milliseconds"].where(plays["duration_known"])).clip(0, 1.5)
     plays["good_play"] = plays["play_milliseconds"] >= 30000
+    plays["valid_play"] = plays["good_play"]
     plays["full_play"] = np.where(
         plays["duration_milliseconds"].gt(0),
         plays["play_share"].ge(0.80),
@@ -404,17 +358,21 @@ def make_plays(library: pd.DataFrame, daily: pd.DataFrame) -> pd.DataFrame:
         | reason.str.contains("scrub", regex=False)
         | reason.str.contains("manually", regex=False)
         | plays["play_milliseconds"].lt(30000)
-        | plays["play_share"].lt(0.25)
+        | (plays["duration_known"] & plays["play_share"].lt(0.25))
     )
 
-    plays["date"] = plays["played_at"].dt.date
-    plays["month"] = plays["played_at"].dt.strftime("%Y-%m")
-    plays["weekday"] = plays["played_at"].dt.day_name()
-    plays["weekday_num"] = plays["played_at"].dt.weekday
-    plays["hour"] = plays["played_at"].dt.hour
+    plays["played_at_local"] = plays["played_at"].dt.tz_convert(TIMEZONE)
+    plays["date"] = plays["played_at_local"].dt.date
+    plays["month"] = plays["played_at_local"].dt.strftime("%Y-%m")
+    plays["weekday"] = plays["played_at_local"].dt.day_name()
+    plays["weekday_num"] = plays["played_at_local"].dt.weekday
+    plays["hour"] = plays["played_at_local"].dt.hour
     plays["time_block"] = plays["hour"].map(time_label)
 
+    plays["bucket"] = (plays["hour"] // 4).map(dict(enumerate(BUCKETS)))
+
     keep = [
+        "played_at_local", "bucket", "duration_known", "valid_play", "match_tier", "ambiguous_title",
         "event_id",
         "played_at",
         "start_at",
@@ -465,7 +423,12 @@ def make_plays(library: pd.DataFrame, daily: pd.DataFrame) -> pd.DataFrame:
     return plays
 
 
-def make_tracks(plays: pd.DataFrame, library: pd.DataFrame, links: pd.DataFrame) -> pd.DataFrame:
+def make_tracks(plays: pd.DataFrame, as_of, library: pd.DataFrame | None = None,
+                links: pd.DataFrame | None = None, use_snapshot_features: bool = True) -> pd.DataFrame:
+    as_of = pd.Timestamp(as_of)
+    if as_of.tzinfo is None:
+        raise ValueError("as_of must include a timezone")
+    plays = plays.loc[plays["played_at"].lt(as_of)].copy()
     tracks = (
         plays.groupby("track_key", dropna=False)
         .agg(
@@ -475,6 +438,7 @@ def make_tracks(plays: pd.DataFrame, library: pd.DataFrame, links: pd.DataFrame)
             genre=("genre", "first"),
             display=("display", "first"),
             plays=("track_key", "size"),
+            valid_plays=("valid_play", "sum"),
             minutes=("minutes", "sum"),
             good_plays=("good_play", "sum"),
             full_plays=("full_play", "sum"),
@@ -490,33 +454,24 @@ def make_tracks(plays: pd.DataFrame, library: pd.DataFrame, links: pd.DataFrame)
         .reset_index()
     )
 
-    small = library[
-        [
-            "track_key",
-            "track_id",
-            "apple_id",
-            "duration_milliseconds",
-            "library_plays",
-            "library_skips",
-            "added_at",
-            "release_at",
-        ]
-    ].drop_duplicates("track_key")
-
-    tracks = tracks.merge(small, on="track_key", how="left")
-
-    counts = links.groupby("track_id").agg(playlist_count=("playlist_id", "nunique")).reset_index()
-    tracks = tracks.merge(counts, on="track_id", how="left")
-    tracks["playlist_count"] = tracks["playlist_count"].fillna(0)
+    if use_snapshot_features:
+        if library is None or links is None:
+            raise ValueError("Snapshot features require library and playlist links")
+        small = library[["track_key", "track_id", "apple_id", "duration_milliseconds",
+                         "library_plays", "library_skips", "added_at", "release_at"]].drop_duplicates("track_key")
+        tracks = tracks.merge(small, on="track_key", how="left", validate="1:1")
+        counts = links.loc[links["track_id"].ne("")].groupby("track_id").agg(playlist_count=("playlist_id", "nunique")).reset_index()
+        tracks = tracks.merge(counts, on="track_id", how="left", validate="m:1")
+        tracks["playlist_count"] = tracks["playlist_count"].fillna(0)
+        tracks["library_ready"] = tracks["track_id"].notna() | tracks["apple_id"].notna()
 
     tracks["good_rate"] = safe_rate(tracks["good_plays"], tracks["plays"])
     tracks["full_rate"] = safe_rate(tracks["full_plays"], tracks["plays"])
     tracks["friction_rate"] = safe_rate(tracks["friction_plays"], tracks["plays"])
-    tracks["library_ready"] = tracks["track_id"].notna() | tracks["apple_id"].notna()
-    tracks["retained"] = tracks["plays"].ge(2)
-    tracks["recommender_ready"] = tracks["plays"].ge(2) & tracks["artist"].ne("Unknown Artist")
+    tracks["retained"] = tracks["valid_plays"].ge(2)
+    tracks["recommender_ready"] = tracks["valid_plays"].ge(2) & tracks["artist"].ne("Unknown Artist")
 
-    return tracks.sort_values(["plays", "minutes"], ascending=[False, False]).reset_index(drop=True)
+    return tracks.sort_values(["valid_plays", "minutes"], ascending=[False, False]).reset_index(drop=True)
 
 
 def make_artists(plays: pd.DataFrame) -> pd.DataFrame:
@@ -524,6 +479,7 @@ def make_artists(plays: pd.DataFrame) -> pd.DataFrame:
         plays.groupby("artist", dropna=False)
         .agg(
             plays=("track_key", "size"),
+            valid_plays=("valid_play", "sum"),
             tracks=("track_key", "nunique"),
             albums=("album", "nunique"),
             genres=("genre", "nunique"),
@@ -543,7 +499,7 @@ def make_artists(plays: pd.DataFrame) -> pd.DataFrame:
     artists["full_rate"] = safe_rate(artists["full_plays"], artists["plays"])
     artists["friction_rate"] = safe_rate(artists["friction_plays"], artists["plays"])
 
-    return artists.sort_values(["plays", "minutes"], ascending=[False, False]).reset_index(drop=True)
+    return artists.sort_values(["valid_plays", "minutes"], ascending=[False, False]).reset_index(drop=True)
 
 
 def make_albums(plays: pd.DataFrame) -> pd.DataFrame:
@@ -551,6 +507,7 @@ def make_albums(plays: pd.DataFrame) -> pd.DataFrame:
         plays.groupby(["album", "artist"], dropna=False)
         .agg(
             plays=("track_key", "size"),
+            valid_plays=("valid_play", "sum"),
             tracks=("track_key", "nunique"),
             minutes=("minutes", "sum"),
             full_plays=("full_play", "sum"),
@@ -572,6 +529,7 @@ def make_genres(plays: pd.DataFrame) -> pd.DataFrame:
         plays.groupby("genre", dropna=False)
         .agg(
             plays=("track_key", "size"),
+            valid_plays=("valid_play", "sum"),
             tracks=("track_key", "nunique"),
             artists=("artist", "nunique"),
             minutes=("minutes", "sum"),
@@ -585,9 +543,9 @@ def make_genres(plays: pd.DataFrame) -> pd.DataFrame:
 
     genres["full_rate"] = safe_rate(genres["full_plays"], genres["plays"])
     genres["friction_rate"] = safe_rate(genres["friction_plays"], genres["plays"])
-    genres["share"] = safe_rate(genres["plays"], pd.Series(genres["plays"].sum(), index=genres.index))
+    genres["share"] = safe_rate(genres["valid_plays"], pd.Series(genres["valid_plays"].sum(), index=genres.index))
 
-    return genres.sort_values(["plays", "minutes"], ascending=[False, False]).reset_index(drop=True)
+    return genres.sort_values(["valid_plays", "minutes"], ascending=[False, False]).reset_index(drop=True)
 
 
 def make_days(plays: pd.DataFrame) -> pd.DataFrame:
@@ -595,6 +553,7 @@ def make_days(plays: pd.DataFrame) -> pd.DataFrame:
         plays.groupby("date", dropna=True)
         .agg(
             plays=("track_key", "size"),
+            valid_plays=("valid_play", "sum"),
             tracks=("track_key", "nunique"),
             artists=("artist", "nunique"),
             minutes=("minutes", "sum"),
@@ -607,6 +566,10 @@ def make_days(plays: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
     )
 
+    valid = plays.loc[plays["valid_play"]]
+    for column, source in [("top_artist", "artist"), ("top_genre", "genre")]:
+        leading = valid.groupby("date")[source].agg(top_value)
+        days[column] = days["date"].map(leading).fillna("No plays (30s+)")
     days["date"] = pd.to_datetime(days["date"])
     days["full_rate"] = safe_rate(days["full_plays"], days["plays"])
     days["friction_rate"] = safe_rate(days["friction_plays"], days["plays"])
@@ -619,6 +582,7 @@ def make_hours(plays: pd.DataFrame) -> pd.DataFrame:
         plays.groupby(["weekday_num", "weekday", "hour"], dropna=True)
         .agg(
             plays=("track_key", "size"),
+            valid_plays=("valid_play", "sum"),
             minutes=("minutes", "sum"),
             full_plays=("full_play", "sum"),
             friction_plays=("friction", "sum"),
@@ -632,11 +596,33 @@ def make_hours(plays: pd.DataFrame) -> pd.DataFrame:
     return hours.sort_values(["weekday_num", "hour"]).reset_index(drop=True)
 
 
+def make_heatmap(plays: pd.DataFrame) -> pd.DataFrame:
+    data = plays.assign(weekday=plays["weekday_num"].map(dict(enumerate(WEEKDAYS))))
+    keys = ["weekday", "bucket"]
+    heat = data.groupby(keys).agg(minutes=("minutes", "sum"), valid_plays=("valid_play", "sum"),
+                                  tracks=("track_key", "nunique"))
+    top = data.loc[data["valid_play"]].groupby(keys)["artist"].agg(lambda x: ", ".join(x.value_counts().head(3).index))
+    peak_day = data.groupby([*keys, "date"])["minutes"].sum().groupby(level=keys).max()
+    heat["top_artists"] = top
+    heat["top_day_share"] = peak_day / heat["minutes"]
+    index = pd.MultiIndex.from_product([WEEKDAYS, BUCKETS], names=keys)
+    heat = heat.reindex(index).reset_index()
+    heat["top_artists"] = heat["top_artists"].fillna("")
+    heat = heat.fillna(0)
+    calendar = pd.date_range(min(data["date"]), max(data["date"]), freq="D")
+    counts = pd.Series(calendar.dayofweek).value_counts()
+    heat["weekday_count"] = heat["weekday"].map({day: int(counts.get(i, 0)) for i, day in enumerate(WEEKDAYS)})
+    heat["avg_minutes"] = safe_rate(heat["minutes"], heat["weekday_count"])
+    return heat[["weekday", "bucket", "minutes", "valid_plays", "tracks", "top_artists",
+                 "weekday_count", "avg_minutes", "top_day_share"]]
+
+
 def make_sources(plays: pd.DataFrame) -> pd.DataFrame:
     sources = (
         plays.groupby(["source_label", "source_role"], dropna=False)
         .agg(
             plays=("track_key", "size"),
+            valid_plays=("valid_play", "sum"),
             tracks=("track_key", "nunique"),
             artists=("artist", "nunique"),
             genres=("genre", "nunique"),
@@ -666,9 +652,10 @@ def make_sessions(plays: pd.DataFrame) -> pd.DataFrame:
     sessions = (
         data.groupby("session")
         .agg(
-            start=("played_at", "min"),
-            end=("played_at", "max"),
+            start=("played_at_local", "min"),
+            end=("played_at_local", "max"),
             plays=("track_key", "size"),
+            valid_plays=("valid_play", "sum"),
             tracks=("track_key", "nunique"),
             artists=("artist", "nunique"),
             genres=("genre", "nunique"),
@@ -707,43 +694,41 @@ def make_sessions(plays: pd.DataFrame) -> pd.DataFrame:
     return sessions.sort_values("start").reset_index(drop=True)
 
 
-def make_features(tracks: pd.DataFrame, plays: pd.DataFrame) -> pd.DataFrame:
-    data = tracks.copy()
-
-    latest = plays["played_at"].max()
-    data["recency_days"] = (latest - data["last_play"]).dt.total_seconds().div(86400).fillna(0)
-
-    data["plays_log"] = np.log1p(data["plays"])
+def make_features(plays: pd.DataFrame, as_of, library: pd.DataFrame | None = None,
+                  links: pd.DataFrame | None = None, use_snapshot_features: bool = True) -> pd.DataFrame:
+    data = make_tracks(plays, as_of, library, links, use_snapshot_features)
+    data["recency_days"] = (pd.Timestamp(as_of) - data["last_play"]).dt.total_seconds().div(86400)
+    data["plays_log"] = np.log1p(data["valid_plays"])
     data["minutes_log"] = np.log1p(data["minutes"])
     data["days_log"] = np.log1p(data["active_days"])
-    data["playlist_log"] = np.log1p(data["playlist_count"])
+    if use_snapshot_features:
+        data["playlist_log"] = np.log1p(data["playlist_count"])
     data["fresh_score"] = 1 / (1 + data["recency_days"])
-    data["keep_score"] = 1 - data["friction_rate"].fillna(0).clip(0, 1)
+    for name, count in [("full", "full_plays"), ("friction", "friction_plays")]:
+        prior = data[count].sum() / max(data["plays"].sum(), 1)
+        data[f"smoothed_{name}_rate"] = smoothed_rate(data[count], data["plays"], prior)
+    data["keep_score"] = 1 - data["smoothed_friction_rate"]
+    weights = {"plays_log": .32, "minutes_log": .20, "days_log": .16,
+               "fresh_score": .10, "keep_score": .12}
+    if use_snapshot_features:
+        weights["playlist_log"] = .10
+    data["affinity_score"] = sum(w * scale_score(data[c]) for c, w in weights.items()) / sum(weights.values())
 
-    data["affinity_score"] = (
-        0.32 * scale_score(data["plays_log"])
-        + 0.20 * scale_score(data["minutes_log"])
-        + 0.16 * scale_score(data["days_log"])
-        + 0.10 * scale_score(data["playlist_log"])
-        + 0.10 * scale_score(data["fresh_score"])
-        + 0.12 * scale_score(data["keep_score"])
-    )
-
-    play_high = data["plays"].quantile(0.75)
-    play_mid = data["plays"].quantile(0.50)
+    play_high = data["valid_plays"].quantile(0.75)
+    play_mid = data["valid_plays"].quantile(0.50)
     score_high = data["affinity_score"].quantile(0.75)
     score_mid = data["affinity_score"].quantile(0.50)
-    friction_high = data["friction_rate"].quantile(0.75)
+    friction_high = data["smoothed_friction_rate"].quantile(0.75)
 
     data["favorite_like"] = data["affinity_score"].ge(score_high)
 
     data["candidate_class"] = np.select(
         [
-            data["plays"].ge(play_high) & data["affinity_score"].ge(score_high) & data["friction_rate"].lt(friction_high),
-            data["plays"].lt(play_mid) & data["affinity_score"].ge(score_high),
-            data["plays"].ge(play_high) & data["friction_rate"].ge(friction_high),
-            data["plays"].eq(1) & data["full_rate"].ge(0.80),
-            data["affinity_score"].lt(score_mid) & data["friction_rate"].ge(friction_high),
+            data["valid_plays"].ge(play_high) & data["affinity_score"].ge(score_high) & data["smoothed_friction_rate"].lt(friction_high),
+            data["valid_plays"].lt(play_mid) & data["affinity_score"].ge(score_high),
+            data["valid_plays"].ge(play_high) & data["smoothed_friction_rate"].ge(friction_high),
+            data["valid_plays"].eq(1) & data["smoothed_full_rate"].ge(0.80),
+            data["affinity_score"].lt(score_mid) & data["smoothed_friction_rate"].ge(friction_high),
         ],
         [
             "Core Favorite",
@@ -772,16 +757,6 @@ def make_features(tracks: pd.DataFrame, plays: pd.DataFrame) -> pd.DataFrame:
         ],
         default="Usable track with moderate behavioral evidence.",
     )
-
-    data["text"] = (
-        data["track"].fillna("").astype(str)
-        + " "
-        + data["artist"].fillna("").astype(str)
-        + " "
-        + data["album"].fillna("").astype(str)
-        + " "
-        + data["genre"].fillna("").astype(str)
-    ).str.lower()
 
     return data.sort_values("affinity_score", ascending=False).reset_index(drop=True)
 
@@ -835,7 +810,7 @@ def make_profile(plays: pd.DataFrame, tracks: pd.DataFrame, artists: pd.DataFram
     unique_tracks = plays["track_key"].nunique()
 
     repeat_score = 1 - (unique_tracks / total)
-    top_artist_share = artists.head(10)["plays"].sum() / total
+    top_artist_share = artists.nlargest(10, "plays")["plays"].sum() / total
     playlist_share = plays["source_role"].eq("Playlist").mean()
     night_share = plays["time_block"].eq("Night").mean()
     friction_score = plays["friction"].mean()
@@ -847,22 +822,10 @@ def make_profile(plays: pd.DataFrame, tracks: pd.DataFrame, artists: pd.DataFram
     top_genre_share = genre_counts.iloc[0] if not genre_counts.empty else 0
     genre_score = 1 - top_genre_share
 
-    scores = {
-        "Friction-Sensitive Listener": friction_score,
-        "Repeat-Driven Listener": repeat_score,
-        "Exploratory Listener": discovery_share,
-        "Playlist-Led Listener": playlist_share,
-        "Night-Heavy Listener": night_share,
-        "Artist-Loyal Listener": top_artist_share,
-        "Deep-Listening Listener": deep_score,
-    }
-
-    profile_type = max(scores, key=scores.get)
     top_source = sources.iloc[0]["source_label"] if not sources.empty else "Unknown Source"
     top_time = plays["time_block"].value_counts().index[0] if not plays.empty else "Unknown Time"
 
     rows = [
-        {"metric": "profile_type", "value": profile_type, "score": scores[profile_type]},
         {"metric": "repeat_intensity", "value": "Repeat Intensity", "score": repeat_score},
         {"metric": "discovery_share", "value": "Discovery Share", "score": discovery_share},
         {"metric": "discovery_retention", "value": "Discovery Retention", "score": retention_score},
@@ -880,7 +843,6 @@ def make_profile(plays: pd.DataFrame, tracks: pd.DataFrame, artists: pd.DataFram
 
 
 def save_check(tables: dict[str, pd.DataFrame]) -> None:
-    profile_type = tables["profile"].loc[tables["profile"]["metric"].eq("profile_type"), "value"].iloc[0]
 
     check = {
         "plays": int(len(tables["plays"])),
@@ -893,7 +855,13 @@ def save_check(tables: dict[str, pd.DataFrame]) -> None:
         "first_play": tables["plays"]["played_at"].min().isoformat(),
         "last_play": tables["plays"]["played_at"].max().isoformat(),
         "ready_tracks": int(tables["features"]["recommender_ready"].sum()),
-        "profile_type": str(profile_type),
+        "valid_plays": int(tables["plays"]["valid_play"].sum()),
+        "timezone": TIMEZONE,
+        "match_tier_counts": tables["plays"]["match_tier"].value_counts().to_dict(),
+        "match_tier_rates": tables["plays"]["match_tier"].value_counts(normalize=True).to_dict(),
+        "ambiguous_title_plays": int(tables["plays"]["ambiguous_title"].sum()),
+        "unknown_duration_share": float((~tables["plays"]["duration_known"]).mean()),
+        "daily_timezone": "Unspecified in export; daily date/hour retained without timezone",
     }
 
     with (work_path / "data_check.json").open("w", encoding="utf-8") as file:
@@ -911,7 +879,8 @@ def save_data() -> dict[str, pd.DataFrame]:
     if plays.empty:
         raise ValueError("No play rows were created. Processed files were not written.")
 
-    tracks = make_tracks(plays, library, links)
+    as_of = plays["played_at"].max() + pd.Timedelta(nanoseconds=1)
+    tracks = make_tracks(plays, as_of, library, links)
     artists = make_artists(plays)
     albums = make_albums(plays)
     genres = make_genres(plays)
@@ -919,7 +888,7 @@ def save_data() -> dict[str, pd.DataFrame]:
     hours = make_hours(plays)
     sources = make_sources(plays)
     sessions = make_sessions(plays)
-    features = make_features(tracks, plays)
+    features = make_features(plays, as_of, library, links)
     life = make_life(features)
     profile = make_profile(plays, tracks, artists, sources)
 
@@ -935,6 +904,7 @@ def save_data() -> dict[str, pd.DataFrame]:
         "genres": genres,
         "days": days,
         "hours": hours,
+        "heatmap": make_heatmap(plays),
         "sources": sources,
         "sessions": sessions,
         "features": features,

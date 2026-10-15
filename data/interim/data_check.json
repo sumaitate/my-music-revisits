@@ -1,13 +1,29 @@
 {
-  "plays": 10454,
-  "tracks": 2962,
-  "artists": 995,
-  "albums": 1853,
-  "genres": 70,
+  "plays": 10464,
+  "tracks": 3000,
+  "artists": 990,
+  "albums": 1858,
+  "genres": 69,
   "sessions": 448,
-  "minutes": 9900.943433333334,
+  "minutes": 9909.943166666668,
   "first_play": "2025-10-18T00:35:42.673000+00:00",
   "last_play": "2026-03-13T22:20:48.734000+00:00",
-  "ready_tracks": 1393,
-  "profile_type": "Friction-Sensitive Listener"
+  "ready_tracks": 388,
+  "valid_plays": 3747,
+  "timezone": "America/New_York",
+  "match_tier_counts": {
+    "exact title+album": 8638,
+    "daily title": 1194,
+    "unmatched": 620,
+    "library title": 12
+  },
+  "match_tier_rates": {
+    "exact title+album": 0.8254969418960245,
+    "daily title": 0.11410550458715596,
+    "unmatched": 0.059250764525993885,
+    "library title": 0.0011467889908256881
+  },
+  "ambiguous_title_plays": 129,
+  "unknown_duration_share": 9.556574923547401e-05,
+  "daily_timezone": "Unspecified in export; daily date/hour retained without timezone"
 }

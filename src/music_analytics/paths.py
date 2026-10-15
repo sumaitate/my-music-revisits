@@ -5,7 +5,7 @@ root_path = Path(__file__).resolve().parents[2]
 data_path = root_path / "data"
 raw_path = data_path / "raw"
 csv_path = raw_path / "csv"
-zip_path = raw_path / "json_zip"
+zip_path = raw_path / "json_zips"
 
 work_path = data_path / "interim"
 clean_path = data_path / "processed"

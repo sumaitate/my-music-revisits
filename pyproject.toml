@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "music_analytics"
+version = "0.1.0"
+description = "Personal Apple Music listening analysis and track revisits"
+requires-python = ">=3.11"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["music_analytics*"]
+
+[tool.setuptools.package-data]
+music_analytics = ["dashboard/style.css"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

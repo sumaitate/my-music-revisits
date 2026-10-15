@@ -1,12 +1,12 @@
+from music_analytics.paths import make_paths
 import sys
-from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 from music_analytics.recommend import find_track, recommend_for
 
 
 def main() -> None:
+    make_paths()
     if len(sys.argv) < 2:
         print('Usage: python3 scripts/show_recommendations.py "track, artist, album, or genre"')
         return

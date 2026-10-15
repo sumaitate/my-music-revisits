@@ -1,0 +1,9 @@
+Recommendation layer saved.
+Tracks: 3,000
+Matrix: 3,000 rows x 14,781 columns
+Candidates: 3,000
+Recommendation pairs: 10,556
+Saved data/processed/recommend_candidates.parquet
+Saved data/processed/recommendations.parquet
+Saved data/processed/recommend_profile.parquet
+Saved models/recommend_settings.json

@@ -54,7 +54,6 @@ def read_csv(name: str) -> pd.DataFrame:
     path = need_file(name)
     data = pd.read_csv(path, low_memory=False)
     data = clean_cols(data)
-    data["source_file"] = path.name
     return data
 
 
@@ -77,7 +76,6 @@ def read_zip(name: str) -> pd.DataFrame:
         data = pd.json_normalize(value)
 
     data = clean_cols(data)
-    data["source_file"] = path.name
 
     return data
 
@@ -145,17 +143,19 @@ def audit_data() -> pd.DataFrame:
 
 
 def as_time(value: pd.Series) -> pd.Series:
+    """Parse millisecond epochs and ISO timestamps independently in mixed exports."""
     number = pd.to_numeric(value, errors="coerce")
-
-    if number.notna().mean() > 0.8 and number.dropna().gt(10**11).any():
-        return pd.to_datetime(number, errors="coerce", unit="ms", utc=True)
-
-    return pd.to_datetime(value, errors="coerce", utc=True)
+    numeric = number.notna()
+    result = pd.Series(pd.NaT, index=value.index, dtype="datetime64[ns, UTC]")
+    result.loc[numeric] = pd.to_datetime(number[numeric], unit="ms", errors="coerce", utc=True)
+    result.loc[~numeric] = pd.to_datetime(value[~numeric], format="mixed", errors="coerce", utc=True)
+    return result
 
 
 def as_day(value: pd.Series) -> pd.Series:
-    text = value.astype("string").str.replace(".0", "", regex=False)
-    return pd.to_datetime(text, format="%Y%m%d", errors="coerce", utc=True)
+    # The daily export supplies calendar dates without timezone metadata.
+    text = value.astype("string").str.replace(r"\.0$", "", regex=True)
+    return pd.to_datetime(text, format="%Y%m%d", errors="coerce")
 
 
 def split_track(value: pd.Series) -> pd.DataFrame:

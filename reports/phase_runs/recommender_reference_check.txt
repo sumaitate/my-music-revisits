@@ -1,0 +1,110 @@
+src/music_analytics/recommend.py:6:from sklearn.feature_extraction.text import TfidfVectorizer
+src/music_analytics/recommend.py:13:def need_col(data: pd.DataFrame, name: str, value):
+src/music_analytics/recommend.py:19:def safe_num(data: pd.DataFrame, name: str) -> pd.Series:
+src/music_analytics/recommend.py:26:def safe_text(data: pd.DataFrame, name: str) -> pd.Series:
+src/music_analytics/recommend.py:32:def fill_text(data: pd.DataFrame, name: str, fallback) -> pd.Series:
+src/music_analytics/recommend.py:33:    text = safe_text(data, name).map(clean_text)
+src/music_analytics/recommend.py:36:        backup = fallback.fillna("").astype(str).map(clean_text)
+src/music_analytics/recommend.py:37:        text = text.mask(text.eq(""), backup)
+src/music_analytics/recommend.py:39:        text = text.mask(text.eq(""), str(fallback))
+src/music_analytics/recommend.py:41:    return text
+src/music_analytics/recommend.py:43:def clean_text(value) -> str:
+src/music_analytics/recommend.py:44:    text = "" if pd.isna(value) else str(value)
+src/music_analytics/recommend.py:45:    text = text.replace("\n", " ").replace("\r", " ")
+src/music_analytics/recommend.py:46:    text = " ".join(text.split())
+src/music_analytics/recommend.py:48:    return text
+src/music_analytics/recommend.py:90:def make_text(data: pd.DataFrame) -> pd.Series:
+src/music_analytics/recommend.py:91:    text = (
+src/music_analytics/recommend.py:92:        safe_text(data, "display")
+src/music_analytics/recommend.py:94:        + safe_text(data, "track")
+src/music_analytics/recommend.py:96:        + safe_text(data, "artist")
+src/music_analytics/recommend.py:98:        + safe_text(data, "album")
+src/music_analytics/recommend.py:100:        + safe_text(data, "genre")
+src/music_analytics/recommend.py:102:        + safe_text(data, "candidate_class")
+src/music_analytics/recommend.py:104:        + safe_text(data, "ready_reason")
+src/music_analytics/recommend.py:107:    if "text" in data.columns:
+src/music_analytics/recommend.py:108:        text = text + " " + safe_text(data, "text")
+src/music_analytics/recommend.py:110:    return text.map(clean_text)
+src/music_analytics/recommend.py:116:    need_col(tracks, "track_key", tracks.index.astype(str))
+src/music_analytics/recommend.py:117:    need_col(tracks, "display", safe_text(tracks, "track"))
+src/music_analytics/recommend.py:118:    need_col(tracks, "track", safe_text(tracks, "display"))
+src/music_analytics/recommend.py:119:    need_col(tracks, "artist", "Unknown Artist")
+src/music_analytics/recommend.py:120:    need_col(tracks, "album", "Unknown Album")
+src/music_analytics/recommend.py:121:    need_col(tracks, "genre", "Unknown Genre")
+src/music_analytics/recommend.py:122:    need_col(tracks, "candidate_class", "General Candidate")
+src/music_analytics/recommend.py:123:    need_col(tracks, "ready_reason", "")
+src/music_analytics/recommend.py:124:    need_col(tracks, "recommender_ready", True)
+src/music_analytics/recommend.py:133:        "playlist_count",
+src/music_analytics/recommend.py:145:        tracks[name] = safe_num(tracks, name)
+src/music_analytics/recommend.py:147:    tracks["track_key"] = fill_text(tracks, "track_key", tracks.index.astype(str))
+src/music_analytics/recommend.py:148:    tracks["display"] = fill_text(tracks, "display", "Unknown Track")
+src/music_analytics/recommend.py:149:    tracks["track"] = fill_text(tracks, "track", tracks["display"])
+src/music_analytics/recommend.py:150:    tracks["artist"] = fill_text(tracks, "artist", "Unknown Artist")
+src/music_analytics/recommend.py:151:    tracks["album"] = fill_text(tracks, "album", "Unknown Album")
+src/music_analytics/recommend.py:152:    tracks["genre"] = fill_text(tracks, "genre", "Unknown Genre")
+src/music_analytics/recommend.py:153:    tracks["candidate_class"] = fill_text(tracks, "candidate_class", "General Candidate")
+src/music_analytics/recommend.py:154:    tracks["ready_reason"] = fill_text(tracks, "ready_reason", "")
+src/music_analytics/recommend.py:158:    tracks["recommend_text"] = make_text(tracks)
+src/music_analytics/recommend.py:163:    playlists = np.log1p(tracks["playlist_count"])
+src/music_analytics/recommend.py:166:    tracks["time_score"] = time / max(time.max(), 1)
+src/music_analytics/recommend.py:180:    tracks["recommend_score"] = (
+src/music_analytics/recommend.py:191:def encoder() -> OneHotEncoder:
+src/music_analytics/recommend.py:199:    text_model = TfidfVectorizer(
+src/music_analytics/recommend.py:208:    category_model = encoder()
+src/music_analytics/recommend.py:212:    text_matrix = text_model.fit_transform(tracks["recommend_text"])
+src/music_analytics/recommend.py:235:        "playlist_count",
+src/music_analytics/recommend.py:240:        "time_score",
+src/music_analytics/recommend.py:245:        "recommend_score",
+src/music_analytics/recommend.py:253:            text_matrix * 1.00,
+src/music_analytics/recommend.py:261:        "text_model": text_model,
+src/music_analytics/recommend.py:299:        "playlist_count",
+src/music_analytics/recommend.py:303:        "recommend_score",
+src/music_analytics/recommend.py:312:        ["recommend_score", "affinity_score", "plays"],
+src/music_analytics/recommend.py:358:                    "recommend_score": candidate["recommend_score"],
+src/music_analytics/recommend.py:459:    (model_path / "recommend_settings.json").write_text(json.dumps(settings, indent=2), encoding="utf-8")
+src/music_analytics/recommend.py:483:    name = clean_text(name).lower()
+src/music_analytics/recommend.py:503:    result = result.sort_values(["similarity", "recommend_score"], ascending=[False, False])
+src/music_analytics/build.py:9:from music_analytics.read import as_day, as_time, audit_data, read_csv, read_zip, safe_rate, split_track, text_key
+src/music_analytics/build.py:22:def id_text(value: pd.Series) -> pd.Series:
+src/music_analytics/build.py:27:def key_text(value: pd.Series) -> pd.Series:
+src/music_analytics/build.py:28:    return value.map(text_key)
+src/music_analytics/build.py:41:    text = str(value).strip().lower()
+src/music_analytics/build.py:42:    text = text.replace("_", " ")
+src/music_analytics/build.py:43:    text = text.replace("/", " ")
+src/music_analytics/build.py:44:    return " ".join(text.split())
+src/music_analytics/build.py:48:    text = clean_source(f"{source} {feature} {container}")
+src/music_analytics/build.py:50:    if text in {"", "nan", "none"}:
+src/music_analytics/build.py:53:    if "search" in text and "album" in text:
+src/music_analytics/build.py:56:    if "search" in text:
+src/music_analytics/build.py:59:    if "library" in text and "playlist" in text:
+src/music_analytics/build.py:62:    if "playlist" in text:
+src/music_analytics/build.py:65:    if "album detail" in text or "album page" in text or "album" in text:
+src/music_analytics/build.py:68:    if "now playing" in text:
+src/music_analytics/build.py:71:    if "radio" in text or "station" in text:
+src/music_analytics/build.py:74:    if "recommend" in text or "for you" in text:
+src/music_analytics/build.py:77:    if "artist" in text:
+src/music_analytics/build.py:80:    if "missing active tab" in text:
+src/music_analytics/build.py:133:    library["track_id"] = id_text(get_col(data, "track_identifier", ""))
+src/music_analytics/build.py:134:    library["apple_id"] = id_text(get_col(data, "apple_music_track_identifier", ""))
+src/music_analytics/build.py:152:    library["track_name"] = key_text(library["track"])
+src/music_analytics/build.py:153:    library["artist_name"] = key_text(library["artist"])
+src/music_analytics/build.py:154:    library["album_name"] = key_text(library["album"])
+src/music_analytics/build.py:169:    playlists["playlist_id"] = id_text(get_col(data, "container_identifier", ""))
+src/music_analytics/build.py:177:    links["track_id"] = id_text(links["items"])
+src/music_analytics/build.py:192:    daily["apple_id"] = id_text(get_col(data, "track_identifier", ""))
+src/music_analytics/build.py:235:    daily["track_name"] = key_text(daily["track"])
+src/music_analytics/build.py:236:    daily["artist_name"] = key_text(daily["artist"])
+src/music_analytics/build.py:237:    daily["album_name"] = key_text(daily["album"])
+src/music_analytics/build.py:291:    plays["track_name"] = key_text(plays["track"])
+src/music_analytics/build.py:292:    plays["album_name"] = key_text(plays["album"])
+src/music_analytics/build.py:333:    plays["artist_name"] = key_text(plays["artist"])
+src/music_analytics/build.py:334:    plays["album_name"] = key_text(plays["album"])
+src/music_analytics/build.py:466:        counts = links.loc[links["track_id"].ne("")].groupby("track_id").agg(playlist_count=("playlist_id", "nunique")).reset_index()
+src/music_analytics/build.py:468:        tracks["playlist_count"] = tracks["playlist_count"].fillna(0)
+src/music_analytics/build.py:704:        data["playlist_log"] = np.log1p(data["playlist_count"])
+scripts\make_eda.py:52:        mode="markers+text",
+scripts\make_eda.py:53:        text=genres["genre"],
+scripts\make_eda.py:67:text = f"""# {LISTENER_NAME}'s Music Revisits EDA
+scripts\make_eda.py:78:(report_path / "eda.md").write_text(text, encoding="utf-8")
+scripts\show_recommendations.py:29:        print(f"   Score: {row.recommend_score:.3f}")
+scripts\show_recommendations.py:37:    print(f"Score: {seed['recommend_score']:.3f}")

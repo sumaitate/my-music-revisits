@@ -1,0 +1,51 @@
+Raw audit saved to data/interim/raw_audit.csv
+                             file    folder     kind  rows_sample
+            container_details.csv       csv      csv            5
+             container_origin.csv       csv      csv            5
+                    favorites.csv       csv      csv            5
+           feature_statistics.csv       csv      csv            5
+          music_play_activity.csv       csv      csv            5
+    play_history_daily_tracks.csv       csv      csv            5
+              play_statistics.csv       csv      csv            5
+           recent_impressions.csv       csv      csv            5
+   recently_played_containers.csv       csv      csv            5
+       recently_played_tracks.csv       csv      csv            5
+                  top_content.csv       csv      csv            5
+           track_play_history.csv       csv      csv            5
+  identifier_information.json.zip json_zips json_zip        15260
+        library_activity.json.zip json_zips json_zip         3842
+          library_albums.json.zip json_zips json_zip         5255
+         library_artists.json.zip json_zips json_zip         3109
+library_import_playlists.json.zip json_zips json_zip           88
+ library_import_sessions.json.zip json_zips json_zip            1
+   library_import_tracks.json.zip json_zips json_zip         9547
+       library_playlists.json.zip json_zips json_zip          144
+          library_tracks.json.zip json_zips json_zip        10738
+Processed data saved.
+library: 10,633 rows
+playlists: 144 rows
+playlist_tracks: 16,687 rows
+daily_tracks: 5,042 rows
+plays: 10,454 rows
+tracks: 2,962 rows
+artists: 995 rows
+albums: 1,853 rows
+genres: 70 rows
+days: 143 rows
+hours: 155 rows
+sources: 10 rows
+sessions: 448 rows
+features: 2,962 rows
+life: 2,962 rows
+profile: 12 rows
+EDA saved.
+Open reports/eda.md and reports/figures.
+Recommendation layer saved.
+Tracks: 2,962
+Matrix: 2,962 rows x 14,789 columns
+Candidates: 2,962
+Recommendation pairs: 17,972
+Saved data/processed/recommend_candidates.parquet
+Saved data/processed/recommendations.parquet
+Saved data/processed/recommend_profile.parquet
+Saved models/recommend_settings.json

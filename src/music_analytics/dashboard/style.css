@@ -1,0 +1,943 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Pixelify+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+    --page: #EDF8FF;
+    --page-soft: rgba(237, 248, 255, 0.88);
+
+    --ink: #1C1A1B;
+    --black: #101010;
+    --muted: #575055;
+    --select: #8B1230;
+
+    --pink: #F5A8CD;
+    --pink-dark: #963653;
+    --mint: #A8E8CE;
+    --purple: #C5ADFF;
+    --yellow: #FFE28C;
+    --blue: #A9D6F5;
+
+    --sky-soft: rgba(211, 235, 251, 0.78);
+    --sky-shade: rgba(150, 196, 232, 0.50);
+    --wash: rgba(252, 200, 226, 0.30);
+}
+
+
+/* ---------------------------------------------------------
+   DEFAULT TYPOGRAPHY
+   --------------------------------------------------------- */
+
+body,
+.stApp,
+.stApp p,
+.stApp span,
+.stApp div,
+.stApp label,
+.stApp button,
+.stApp input,
+.stApp textarea,
+.stApp strong,
+.stApp small,
+.stApp h1,
+.stApp h2,
+.stApp h3,
+.stApp h4,
+.stApp h5,
+.stApp h6 {
+    font-family: 'Nunito', sans-serif !important;
+    color: var(--ink);
+}
+
+
+/* ---------------------------------------------------------
+   PIXEL FONT — ONLY SELECTED TITLES
+   --------------------------------------------------------- */
+
+/* Sumaitat only */
+.pixel-name {
+    font-family: 'Pixelify Sans', monospace !important;
+}
+
+/* At a Glance */
+.st-key-panel_overview h1,
+.st-key-panel_overview h2,
+.st-key-panel_overview h3,
+
+/* Most-Played Artists */
+.st-key-panel_artists h1,
+.st-key-panel_artists h2,
+.st-key-panel_artists h3,
+
+/* Leading Genres */
+.st-key-panel_genres h1,
+.st-key-panel_genres h2,
+.st-key-panel_genres h3,
+
+/* When I Listen */
+.st-key-panel_heatmap h1,
+.st-key-panel_heatmap h2,
+.st-key-panel_heatmap h3,
+
+/* Exact recommendation headings when rendered as Markdown headings */
+#recommended-tracks,
+#what-do-you-want-to-hear {
+    font-family: 'Pixelify Sans', monospace !important;
+    color: var(--ink) !important;
+}
+
+
+/* ---------------------------------------------------------
+   PAGE
+   --------------------------------------------------------- */
+
+.stApp {
+    background-color: var(--page);
+    color: var(--ink);
+
+    background-image:
+        radial-gradient(circle, var(--blue) 6px, transparent 6.5px),
+        radial-gradient(circle, var(--pink) 6px, transparent 6.5px);
+
+    background-size: 38px 38px, 38px 38px;
+    background-position: 0 0, 19px 19px;
+}
+
+header[data-testid="stHeader"] {
+    background: transparent;
+}
+
+.block-container {
+    max-width: 1180px;
+    padding-top: 2rem;
+    background-color: var(--page-soft);
+}
+
+.section-divider {
+    border: none;
+    border-top: 3px solid var(--pink);
+    margin: 1.4rem 0;
+}
+
+
+/* ---------------------------------------------------------
+   HERO
+   --------------------------------------------------------- */
+
+.hero {
+    background: linear-gradient(
+        135deg,
+        #F8FCFF 0%,
+        #DCEEFC 100%
+    );
+
+    border: 1px solid var(--ink);
+    border-radius: 16px;
+
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 1rem;
+
+    box-shadow: 0 0 22px rgba(150, 205, 245, .35);
+}
+
+.hero h1,
+.hero h2,
+.hero h3,
+.hero p,
+.hero span,
+.hero strong {
+    font-family: 'Nunito', sans-serif !important;
+    color: var(--ink) !important;
+}
+
+.hero .pixel-name {
+    font-family: 'Pixelify Sans', monospace !important;
+}
+
+.hero h1 {
+    font-size: clamp(1.7rem, 6vw, 2.6rem) !important;
+    line-height: 1.15 !important;
+}
+
+.eyebrow {
+    font-family: 'Nunito', sans-serif !important;
+
+    font-size: .75rem;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+
+    color: var(--ink) !important;
+
+    text-transform: uppercase;
+
+    margin-bottom: .3rem;
+}
+
+.small-caps {
+    font-family: 'Nunito', sans-serif !important;
+
+    font-size: .75rem;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+
+    color: var(--ink) !important;
+
+    text-transform: uppercase;
+
+    margin: .4rem 0;
+}
+
+.highlight {
+    border-bottom: 7px solid var(--pink);
+}
+
+
+/* ---------------------------------------------------------
+   CAPTIONS AND SECONDARY TEXT
+   --------------------------------------------------------- */
+
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] p {
+    font-family: 'Nunito', sans-serif !important;
+
+    color: var(--muted) !important;
+    opacity: 1 !important;
+
+    font-size: .88rem !important;
+    font-weight: 600 !important;
+}
+
+textarea::placeholder,
+input::placeholder {
+    color: #62595E !important;
+    opacity: 1 !important;
+}
+
+
+/* ---------------------------------------------------------
+   TABS
+   --------------------------------------------------------- */
+
+div[data-baseweb="tab-list"] {
+    gap: .5rem;
+    background: transparent;
+}
+
+button[data-baseweb="tab"] {
+    font-family: 'Nunito', sans-serif !important;
+
+    background: var(--sky-soft);
+
+    border: 1px solid var(--ink);
+    border-radius: 12px 12px 0 0;
+
+    padding: .5rem 1rem;
+    height: auto;
+}
+
+button[data-baseweb="tab"] p,
+button[data-baseweb="tab"] span {
+    font-family: 'Nunito', sans-serif !important;
+
+    font-weight: 800;
+
+    color: #312D30 !important;
+}
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    background: var(--wash);
+
+    border: 1px solid var(--pink-dark);
+
+    box-shadow:
+        inset 0 -3px 0 var(--pink-dark);
+}
+
+button[data-baseweb="tab"][aria-selected="true"],
+button[data-baseweb="tab"][aria-selected="true"] p,
+button[data-baseweb="tab"][aria-selected="true"] span,
+button[data-baseweb="tab"][aria-selected="true"] * {
+    color: var(--select) !important;
+}
+
+div[data-baseweb="tab-highlight"],
+div[data-baseweb="tab-border"] {
+    display: none;
+}
+
+div[data-baseweb="tab-panel"] {
+    background: linear-gradient(
+        180deg,
+        var(--sky-shade) 0%,
+        var(--sky-soft) 14%,
+        var(--sky-soft) 88%,
+        var(--sky-shade) 100%
+    );
+
+    border: 1px solid var(--ink);
+    border-radius: 0 16px 16px 16px;
+
+    padding: 1rem 1rem .9rem !important;
+}
+
+
+/* ---------------------------------------------------------
+   PANELS
+   --------------------------------------------------------- */
+
+[class*="st-key-panel_"] {
+    background: var(--wash);
+
+    border: 1px solid var(--ink);
+    border-radius: 14px;
+
+    padding: 1rem 1.1rem 1.2rem;
+
+    box-sizing: border-box;
+}
+
+[class*="st-key-panel_"] .small-caps {
+    margin: .8rem 0 .4rem;
+}
+
+
+/* Repeat Listening stays normal */
+
+.st-key-panel_repeat h1,
+.st-key-panel_repeat h2,
+.st-key-panel_repeat h3,
+.st-key-panel_repeat .small-caps {
+    font-family: 'Nunito', sans-serif !important;
+}
+
+
+/* Daily Listening stays normal */
+
+.st-key-panel_daily h1,
+.st-key-panel_daily h2,
+.st-key-panel_daily h3,
+.st-key-panel_daily .small-caps {
+    font-family: 'Nunito', sans-serif !important;
+}
+
+
+/* ---------------------------------------------------------
+   METRICS
+   --------------------------------------------------------- */
+
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: .5rem;
+    margin-bottom: .2rem;
+}
+
+.metric {
+    box-sizing: border-box;
+    min-width: 0;
+
+    background: var(--page);
+
+    border: 1px solid var(--ink);
+    border-radius: 10px;
+
+    padding: .5rem .7rem;
+}
+
+.metric,
+.metric *,
+.metric .muted,
+.metric strong,
+.metric-sub {
+    font-family: 'Nunito', sans-serif !important;
+}
+
+.metric .muted {
+    display: block;
+
+    font-size: .72rem;
+    font-weight: 700;
+    line-height: 1.2;
+
+    color: var(--muted) !important;
+}
+
+.metric strong {
+    display: block;
+
+    font-size: 1.15rem;
+    line-height: 1.25;
+
+    color: var(--ink) !important;
+}
+
+.metric-sub {
+    display: block;
+
+    font-size: .7rem;
+    font-weight: 700;
+    line-height: 1.2;
+
+    color: var(--muted) !important;
+}
+
+
+/* ---------------------------------------------------------
+   KEY / VALUE ROWS
+   --------------------------------------------------------- */
+
+.kv {
+    display: flex;
+    justify-content: space-between;
+
+    gap: .8rem;
+    padding: .45rem 0;
+
+    border-bottom: 1px dashed var(--pink-dark);
+}
+
+.kv,
+.kv * {
+    font-family: 'Nunito', sans-serif !important;
+}
+
+.kv span {
+    font-weight: 700;
+    font-size: .85rem;
+
+    color: var(--muted) !important;
+}
+
+.kv strong {
+    text-align: right;
+    font-size: .9rem;
+
+    color: var(--ink) !important;
+}
+
+
+/* ---------------------------------------------------------
+   GENRES
+   --------------------------------------------------------- */
+
+.genre-row {
+    margin-bottom: .6rem;
+}
+
+.genre-row-top {
+    display: flex;
+    justify-content: space-between;
+
+    gap: .5rem;
+
+    font-family: 'Nunito', sans-serif !important;
+
+    font-size: .88rem;
+    font-weight: 700;
+
+    color: var(--ink) !important;
+
+    margin-bottom: .25rem;
+}
+
+.bar-bg {
+    background: var(--page);
+
+    border: 1px solid var(--ink);
+    border-radius: 999px;
+
+    height: 10px;
+    overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%;
+    border-radius: 999px;
+}
+
+.bubble {
+    border-radius: 999px;
+
+    background: var(--mint);
+    border: 1px solid var(--ink);
+
+    margin-left: auto;
+}
+
+
+/* ---------------------------------------------------------
+   INFORMATION CARDS
+   --------------------------------------------------------- */
+
+.info-wrap {
+    padding: .6rem 0 .9rem;
+}
+
+.info-card {
+    box-sizing: border-box;
+    width: 100%;
+
+    background: var(--wash);
+
+    border: 1px solid var(--ink);
+    border-radius: 10px;
+
+    padding: .5rem .75rem;
+}
+
+.info-card,
+.info-card * {
+    font-family: 'Nunito', sans-serif !important;
+}
+
+.info-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+
+    color: var(--ink) !important;
+
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.info-line {
+    font-size: .8rem;
+    font-weight: 600;
+
+    color: var(--ink) !important;
+
+    line-height: 1.35;
+    margin-top: .12rem;
+
+    overflow-wrap: anywhere;
+}
+
+.info-title + .info-line {
+    margin-top: .25rem;
+}
+
+
+/* ---------------------------------------------------------
+   RANKING
+   --------------------------------------------------------- */
+
+.rank-chip {
+    width: 34px;
+    height: 34px;
+
+    border-radius: 8px;
+    border: 1px solid var(--ink);
+
+    color: var(--ink) !important;
+
+    font-family: 'Nunito', sans-serif !important;
+
+    font-weight: 700;
+    font-size: .85rem;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.muted {
+    color: var(--muted) !important;
+
+    font-family: 'Nunito', sans-serif !important;
+
+    font-size: .85rem;
+    font-weight: 600;
+}
+
+
+/* ---------------------------------------------------------
+   RECOMMENDATION AREA
+   --------------------------------------------------------- */
+
+.st-key-player {
+    background: transparent;
+
+    border: 1px solid var(--ink);
+    border-radius: 22px;
+
+    padding: 1.1rem 1.2rem 1.3rem;
+
+    box-sizing: border-box;
+}
+
+.st-key-player_screen {
+    background: var(--wash);
+
+    border: 1px solid var(--ink);
+    border-radius: 14px;
+
+    padding: .9rem 1rem;
+
+    box-sizing: border-box;
+}
+
+.st-key-player p,
+.st-key-player span,
+.st-key-player strong,
+.st-key-player_screen p,
+.st-key-player_screen span,
+.st-key-player_screen strong {
+    font-family: 'Nunito', sans-serif !important;
+    color: var(--ink) !important;
+}
+
+.st-key-player #recommended-tracks,
+.st-key-player #what-do-you-want-to-hear,
+.st-key-player_screen #recommended-tracks,
+.st-key-player_screen #what-do-you-want-to-hear {
+    font-family: 'Pixelify Sans', monospace !important;
+}
+
+
+/* ---------------------------------------------------------
+   BUTTONS
+   --------------------------------------------------------- */
+
+div[data-testid="stButton"] > button {
+    font-family: 'Nunito', sans-serif !important;
+
+    background: var(--wash);
+
+    color: var(--ink) !important;
+
+    border: 1px solid var(--ink);
+
+    font-weight: 700;
+}
+
+div[data-testid="stButton"] > button p,
+div[data-testid="stButton"] > button span {
+    font-family: 'Nunito', sans-serif !important;
+    color: var(--ink) !important;
+}
+
+div[data-testid="stButton"] > button:hover {
+    background: var(--pink);
+
+    border-color: var(--ink);
+
+    color: var(--ink) !important;
+}
+
+div[data-testid="stButton"] > button[kind="primary"],
+div[data-testid="stButton"] > button[data-testid="stBaseButton-primary"] {
+    background: var(--pink);
+
+    color: var(--ink) !important;
+
+    border: 1px solid var(--ink);
+
+    font-weight: 700;
+}
+
+
+/* ---------------------------------------------------------
+   BUTTON GROUPS
+   --------------------------------------------------------- */
+
+div[data-testid="stButtonGroup"] {
+    flex-wrap: wrap !important;
+
+    overflow: visible !important;
+
+    height: auto !important;
+    max-height: none !important;
+}
+
+div[data-testid="stButtonGroup"] > div {
+    flex-wrap: wrap !important;
+    overflow: visible !important;
+}
+
+button[data-testid="stBaseButton-pills"],
+button[data-testid="stBaseButton-pillsActive"] {
+    font-family: 'Nunito', sans-serif !important;
+    white-space: nowrap;
+}
+
+button[data-testid="stBaseButton-pills"] *,
+button[data-testid="stBaseButton-pillsActive"] * {
+    font-family: 'Nunito', sans-serif !important;
+}
+
+button[data-testid="stBaseButton-pills"] {
+    background: var(--wash);
+
+    border: 1px solid var(--ink);
+
+    color: var(--ink) !important;
+
+    font-weight: 600;
+}
+
+button[data-testid="stBaseButton-pills"]:hover {
+    background: var(--pink);
+
+    border-color: var(--ink);
+
+    color: var(--ink) !important;
+}
+
+button[data-testid="stBaseButton-pillsActive"] {
+    background: var(--pink);
+
+    border: 2px solid var(--pink-dark);
+
+    font-weight: 700;
+}
+
+button[data-testid="stBaseButton-pillsActive"],
+button[data-testid="stBaseButton-pillsActive"] * {
+    color: var(--select) !important;
+}
+
+
+/* ---------------------------------------------------------
+   PROGRESS
+   --------------------------------------------------------- */
+
+[data-testid="stProgress"] [role="progressbar"] > div > div {
+    background-color: var(--pink) !important;
+}
+
+
+/* ---------------------------------------------------------
+   INPUTS
+   --------------------------------------------------------- */
+
+div[data-baseweb="textarea"],
+div[data-baseweb="input"] {
+    border: 1px solid var(--ink) !important;
+    border-radius: 10px;
+
+    background: var(--wash) !important;
+}
+
+div[data-baseweb="base-input"] {
+    border: none !important;
+    background: transparent !important;
+}
+
+div[data-baseweb="base-input"] textarea,
+div[data-baseweb="base-input"] input {
+    font-family: 'Nunito', sans-serif !important;
+
+    background: transparent !important;
+
+    color: var(--ink) !important;
+}
+
+div[data-baseweb="textarea"]:focus-within,
+div[data-baseweb="input"]:focus-within {
+    border-color: var(--pink-dark) !important;
+
+    box-shadow:
+        0 0 0 1px var(--pink-dark);
+}
+
+
+/* ---------------------------------------------------------
+   EXPANDERS
+   --------------------------------------------------------- */
+
+div[data-testid="stExpander"] details {
+    border: 1px solid var(--ink);
+    border-radius: 10px;
+
+    background: var(--wash);
+}
+
+div[data-testid="stExpander"] summary,
+div[data-testid="stExpander"] summary * {
+    font-family: 'Nunito', sans-serif !important;
+    color: var(--ink) !important;
+}
+
+
+/* ---------------------------------------------------------
+   TABLET
+   --------------------------------------------------------- */
+
+@media (max-width: 900px) {
+
+    .block-container {
+        padding: 1rem .9rem 2rem !important;
+    }
+
+    .hero {
+        padding: 1rem 1.1rem;
+    }
+
+    .hero p {
+        font-size: .92rem;
+        margin-bottom: .5rem;
+    }
+
+    div[data-baseweb="tab-panel"] {
+        padding: .8rem .7rem .7rem !important;
+    }
+
+    button[data-baseweb="tab"] {
+        padding: .4rem .7rem;
+    }
+
+    button[data-baseweb="tab"] p {
+        font-size: .8rem;
+    }
+
+    [class*="st-key-panel_"] {
+        padding: .8rem .8rem 1rem;
+    }
+
+    .st-key-player {
+        padding: .8rem .8rem 1rem;
+    }
+
+    .st-key-player_screen {
+        padding: .8rem;
+    }
+
+    .metric {
+        padding: .4rem .6rem;
+    }
+
+    .metric .muted {
+        font-size: .66rem;
+    }
+
+    .metric strong {
+        font-size: 1rem;
+    }
+
+    .metric-sub {
+        font-size: .64rem;
+    }
+
+    .kv span,
+    .kv strong {
+        font-size: .8rem;
+    }
+
+    .genre-row-top {
+        font-size: .82rem;
+    }
+
+    .info-title {
+        font-size: .98rem;
+    }
+
+    .info-line {
+        font-size: .76rem;
+    }
+}
+
+
+/* ---------------------------------------------------------
+   MOBILE
+   --------------------------------------------------------- */
+
+@media (max-width: 640px) {
+
+    .block-container {
+        padding: .6rem .6rem 1.5rem !important;
+    }
+
+    .section-divider {
+        margin: .9rem 0;
+    }
+
+    .small-caps {
+        font-size: .68rem;
+    }
+
+    button[data-baseweb="tab"] {
+        padding: .35rem .55rem;
+    }
+
+    button[data-baseweb="tab"] p {
+        font-size: .72rem;
+    }
+
+    [data-testid="stCaptionContainer"],
+    [data-testid="stCaptionContainer"] p {
+        font-size: .8rem !important;
+    }
+
+    [data-testid="stColumn"] [data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        gap: .4rem !important;
+        align-items: center;
+    }
+
+    [data-testid="stColumn"]
+    [data-testid="stHorizontalBlock"]
+    > [data-testid="stColumn"] {
+        min-width: 0 !important;
+        width: auto !important;
+        flex: 1 1 0 !important;
+    }
+
+    [data-testid="stColumn"]
+    [data-testid="stHorizontalBlock"]
+    > [data-testid="stColumn"]:nth-child(1):nth-last-child(4) {
+        flex-grow: 8 !important;
+    }
+
+    [data-testid="stColumn"]
+    [data-testid="stHorizontalBlock"]
+    > [data-testid="stColumn"]:nth-child(2):nth-last-child(3) {
+        flex-grow: 58 !important;
+    }
+
+    [data-testid="stColumn"]
+    [data-testid="stHorizontalBlock"]
+    > [data-testid="stColumn"]:nth-child(3):nth-last-child(2) {
+        flex-grow: 20 !important;
+    }
+
+    [data-testid="stColumn"]
+    [data-testid="stHorizontalBlock"]
+    > [data-testid="stColumn"]:nth-child(4):nth-last-child(1) {
+        flex-grow: 14 !important;
+    }
+
+    [data-testid="stColumn"]
+    [data-testid="stHorizontalBlock"]
+    > [data-testid="stColumn"]:nth-child(1):nth-last-child(3) {
+        flex-grow: 12 !important;
+    }
+
+    [data-testid="stColumn"]
+    [data-testid="stHorizontalBlock"]
+    > [data-testid="stColumn"]:nth-child(2):nth-last-child(2) {
+        flex-grow: 76 !important;
+    }
+
+    [data-testid="stColumn"]
+    [data-testid="stHorizontalBlock"]
+    > [data-testid="stColumn"]:nth-child(3):nth-last-child(1) {
+        flex-grow: 12 !important;
+    }
+
+    [data-testid="stColumn"]
+    [data-testid="stHorizontalBlock"]
+    > [data-testid="stColumn"]:nth-child(1):nth-last-child(2) {
+        flex-grow: 80 !important;
+    }
+
+    [data-testid="stColumn"]
+    [data-testid="stHorizontalBlock"]
+    > [data-testid="stColumn"]:nth-child(2):nth-last-child(1) {
+        flex-grow: 20 !important;
+    }
+
+    [data-testid="stColumn"]
+    [data-testid="stColumn"] button {
+        padding: .2rem .45rem;
+        min-height: 0;
+    }
+}
