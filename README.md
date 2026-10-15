@@ -1,8 +1,8 @@
 # **My Music Revisits:** Finding Tracks Worth Returning To
-After switching music streaming services for roughly five months, I exported my listening data and used it to analyze patterns in my music behavior. Then built a small recommendation system that uses those patterns to find tracks worth revisiting.
+Under construction
 
 ```text
-music-analytics/
+my-music-revisits/
 ├── app/
 │   └── dashboard.py
 ├── data/
