@@ -32,11 +32,19 @@ Much of my music was imported from Spotify, YouTube, Soundcloud, and other platf
 
 ## Dashboard & Recommendations
 
-The dashboard explores genre preferences, artist rankings, repeat listening behavior, daily activity and weekly listening patterns.
+Built with Streamlit and Plotly, the dashboard consists of two interactive sections.
 
-Building the recommendation system was probably the hardest part. I wanted to work with what little data I had without artificially inflating the importance of certain songs. I used statistical smoothing, behavioral scoring, TF-IDF and cosine similarity to recommend tracks from my existing listening history.
+### 01. My Music Breakdown
 
-Historical replay experiments compare ranking methods using Recall@K and NDCG@K. The interactive interface was built with Streamlit and Plotly.
+An exploration of listening frequency, genre preferences, artist concentration and repeat listening. Using pandas and NumPy, I grouped listening activity by different time intervals and examined how playback duration, completion rates and skipping behavior varied across my music library.
+
+### 02. Get a Recommendation
+
+The hardest part was figuring out how to make meaningful recommendations with the data I had. I used weighted behavioral scoring and statistical smoothing to account for differences in listening frequency and the reliability of individual track statistics.
+
+Using scikit-learn and SciPy, I combined TF-IDF, categorical encoding and numerical listening features into sparse matrices. Cosine similarity identifies related tracks based on the user's selection.
+
+Historical replay experiments compare recommendation strategies against frequency-based and recency-based baselines using Recall@K and NDCG@K.
 
 ## Design
 
@@ -46,7 +54,7 @@ One of the most fun parts was letting my friends play around with the dashboard 
 
 ## Reflections
 
-As much as I love applied mathematics and research, this project made me realize how much I enjoy creating products. It was a fun way to apply statistics and machine learning to something I genuinely care about.
+This project made me realize how much I enjoy creating products and using my graphic design skills. It was a fun way to apply statistics, design, and machine learning to something I genuinely care about. I am interested in exploring what I could do with a larger dataset.
 
 ## AI Transparency Notice
 
